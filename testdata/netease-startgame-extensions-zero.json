@@ -1,0 +1,206 @@
+{
+  "authority": "controlled-static-emulation",
+  "limitations": [
+    "Fake IO encodes zero defaults according to recovered method widths; no actual EXE startup or game execution.",
+    "Common StartGame payload not executed; fixture only verifies extension ordering and default widths."
+  ],
+  "sha256_original": "f8d4fe30f560b49d98a2e0522d9c94fed316eb68e8ed14f2524058e08530dfee",
+  "start": "0x140e4fb26",
+  "end": "0x140e4ff02",
+  "call_count": 32,
+  "wire_length": 50,
+  "calls": [
+    {
+      "kind": "Bool",
+      "field_offset": 563,
+      "wire_offset": 0,
+      "length": 1
+    },
+    {
+      "kind": "String",
+      "field_offset": 568,
+      "wire_offset": 1,
+      "length": 1
+    },
+    {
+      "kind": "String",
+      "field_offset": 584,
+      "wire_offset": 2,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 600,
+      "wire_offset": 3,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 601,
+      "wire_offset": 4,
+      "length": 1
+    },
+    {
+      "kind": "Int32",
+      "field_offset": 604,
+      "wire_offset": 5,
+      "length": 4
+    },
+    {
+      "kind": "Int32",
+      "field_offset": 608,
+      "wire_offset": 9,
+      "length": 4
+    },
+    {
+      "kind": "Int32",
+      "field_offset": 612,
+      "wire_offset": 13,
+      "length": 4
+    },
+    {
+      "kind": "Int32",
+      "field_offset": 616,
+      "wire_offset": 17,
+      "length": 4
+    },
+    {
+      "kind": "Int32",
+      "field_offset": 620,
+      "wire_offset": 21,
+      "length": 4
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 624,
+      "wire_offset": 25,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 625,
+      "wire_offset": 26,
+      "length": 1
+    },
+    {
+      "kind": "Int32",
+      "field_offset": 628,
+      "wire_offset": 27,
+      "length": 4
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 632,
+      "wire_offset": 31,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 633,
+      "wire_offset": 32,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 634,
+      "wire_offset": 33,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 635,
+      "wire_offset": 34,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 636,
+      "wire_offset": 35,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 637,
+      "wire_offset": 36,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 638,
+      "wire_offset": 37,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 639,
+      "wire_offset": 38,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 640,
+      "wire_offset": 39,
+      "length": 1
+    },
+    {
+      "kind": "SliceVaruint32Length",
+      "field_offset": 648,
+      "wire_offset": 40,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 672,
+      "wire_offset": 41,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 673,
+      "wire_offset": 42,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 674,
+      "wire_offset": 43,
+      "length": 1
+    },
+    {
+      "kind": "String",
+      "field_offset": 680,
+      "wire_offset": 44,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 696,
+      "wire_offset": 45,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 697,
+      "wire_offset": 46,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 698,
+      "wire_offset": 47,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 699,
+      "wire_offset": 48,
+      "length": 1
+    },
+    {
+      "kind": "Bool",
+      "field_offset": 700,
+      "wire_offset": 49,
+      "length": 1
+    }
+  ]
+}
