@@ -6,7 +6,7 @@
 
 GitHub 私人仓库的 [Releases](https://github.com/UCKETX/LobbyKeeper/releases) 提供 Linux、Windows、macOS 的 amd64 和 arm64 包及 SHA256 校验文件。下载后按包内 README 配置自己的后端和令牌。Web 控制台已嵌入程序；官方 BDS 和世界需自行部署。
 
-通用启动方式及平台存储差异见 [发布版说明](RELEASE_README.md)。Windows 实机已验证游戏互通；其他平台由 Actions 验证编译和自动测试。
+通用启动方式及平台存储差异见 [发布版说明](docs/RELEASE_README.md)。Windows 实机已验证游戏互通；其他平台由 Actions 验证编译和自动测试。
 
 ## 当前测试环境
 
@@ -21,9 +21,9 @@ GitHub 私人仓库的 [Releases](https://github.com/UCKETX/LobbyKeeper/releases
 
 ## 启动与停止
 
-双击 `启动挂服机.cmd`。脚本检查控制台是否已经运行，必要时启动现有的本地测试服，然后启动统一的 `LobbyKeeper.exe`；配置目录为 `current`。聊天和皮肤改动的验证状态见 `验证记录.md`。控制台显示房间号、后端状态、玩家数据通道数量和连接阶段日志。
+双击 `启动挂服机.cmd`，入口调用 `scripts/start.ps1`。脚本检查控制台是否已经运行，必要时通过 `scripts/start-bedrock.ps1` 启动现有的本地测试服，然后启动项目根目录的 `LobbyKeeper.exe`；配置目录为根目录下的 `current`。聊天和皮肤改动的验证状态见 [验证记录](docs/验证记录.md)。控制台显示房间号、后端状态、玩家数据通道数量和连接阶段日志。
 
-双击 `停止挂服机.cmd` 正常关闭房间及挂服机进程。Bedrock 测试服继续运行，世界文件位于 `runtime/bedrock-1.21.124.2/worlds`。
+双击 `停止挂服机.cmd`，入口调用 `scripts/stop.ps1`，正常关闭房间及挂服机进程。Bedrock 测试服继续运行，世界文件位于 `runtime/bedrock-1.21.124.2/worlds`。
 
 在网页停止房间后可以修改目标服务器地址、房间密码、人数和重连间隔。目标可改成已有的 Bedrock 服务器。房间内核版本字段应与网易客户端匹配，与后端 MOTD 是独立信息。
 
@@ -47,7 +47,7 @@ Windows 令牌保存为 DPAPI 加密文件，绑定当前用户；Linux/macOS �
 
 ## 构建与验证
 
-需要 Go 工具链（本项目使用 go1.26.9）。运行 `构建.ps1`，输出统一的 `LobbyKeeper.exe`。若该文件正在运行，先正常关闭挂服机再构建。
+需要 Go 工具链（本项目使用 go1.26.9）。运行 `scripts/build.ps1`，输出项目根目录的 `LobbyKeeper.exe`。若该文件正在运行，先正常关闭挂服机再构建。
 
 Linux/macOS 源码构建：`go build -trimpath -o LobbyKeeper .`，然后 `./LobbyKeeper -data-dir ./data`。源码运行不要求仓库含本地测试服。
 

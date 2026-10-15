@@ -18,6 +18,12 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"lobbykeeper/internal/auth"
+	"lobbykeeper/internal/bridge"
+	"lobbykeeper/internal/config"
+	"lobbykeeper/internal/secret"
+	"lobbykeeper/internal/session"
 )
 
 //go:embed web/*
@@ -61,13 +67,13 @@ func runMain() error {
 	if err = os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
-	cfg, err := loadConfig(filepath.Join(dir, "config.json"))
+	cfg, err := config.Load(filepath.Join(dir, "config.json"))
 	if err != nil {
 		return fmt.Errorf("配置读取失败: %w", err)
 	}
 	if *webPort != 0 {
 		cfg.WebPort = *webPort
-		if err = cfg.validate(); err != nil {
+		if err = cfg.Validate(); err != nil {
 			return err
 		}
 	}
@@ -80,15 +86,15 @@ func runMain() error {
 		if token == "" {
 			return fmt.Errorf("令牌为空")
 		}
-		if err = saveSecret(filepath.Join(dir, "secrets.dat"), token); err != nil {
+		if err = secret.Save(filepath.Join(dir, "secrets.dat"), token); err != nil {
 			return err
 		}
-		fmt.Println("令牌已保存：" + secretStorageDescription())
+		fmt.Println("令牌已保存：" + secret.StorageDescription())
 		return nil
 	}
 	token := os.Getenv("LOBBYKEEPER_TOKEN")
 	if token == "" {
-		token, err = loadSecret(filepath.Join(dir, "secrets.dat"))
+		token, err = secret.Load(filepath.Join(dir, "secrets.dat"))
 		if err != nil {
 			return fmt.Errorf("无法读取令牌，请检查当前用户权限或重新设置: %w", err)
 		}
@@ -99,22 +105,22 @@ func runMain() error {
 	}
 	defer logFile.Close()
 	if *check {
-		session, err := acquireAccountSession(token)
+		lease, err := session.Acquire(token)
 		if err != nil {
 			return err
 		}
-		defer session.Close()
-		if err := rejectRunningRoom(context.Background(), cfg.WebPort); err != nil {
+		defer lease.Close()
+		if err := session.RejectRunningRoom(context.Background(), cfg.WebPort); err != nil {
 			return err
 		}
-		version, err := pingUpstream(context.Background(), cfg.Upstream)
+		version, err := bridge.PingUpstream(context.Background(), cfg.Upstream)
 		if err != nil {
 			return fmt.Errorf("本地 Bedrock 服务器不可达")
 		}
 		fmt.Println("本地服务器在线，版本:", version)
 		ctx, cancel := context.WithTimeout(context.Background(), 75*time.Second)
 		defer cancel()
-		info, err := fetchCreate(ctx, cfg, token)
+		info, err := auth.FetchCreate(ctx, cfg, token)
 		if err != nil {
 			return err
 		}
@@ -193,8 +199,8 @@ func makeHandler(m *Manager) http.Handler {
 	})
 	mux.HandleFunc("POST /api/config", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Config Config  `json:"config"`
-			Token  *string `json:"token"`
+			Config config.Config `json:"config"`
+			Token  *string       `json:"token"`
 		}
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384))
 		decoder.DisallowUnknownFields()

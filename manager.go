@@ -13,34 +13,45 @@ import (
 	"time"
 
 	"github.com/Happy2018new/nemc-tan-lobby-solver/core/nethernet"
-	"github.com/Happy2018new/nemc-tan-lobby-solver/core/raknet"
 	bdsraknet "github.com/sandertv/go-raknet"
+
+	"lobbykeeper/internal/auth"
+	"lobbykeeper/internal/bridge"
+	"lobbykeeper/internal/config"
+	"lobbykeeper/internal/fileutil"
+	"lobbykeeper/internal/redact"
+	"lobbykeeper/internal/relay"
+	"lobbykeeper/internal/room"
+	"lobbykeeper/internal/secret"
+	"lobbykeeper/internal/session"
 )
 
 type Event struct {
 	Time    string `json:"time"`
 	Message string `json:"message"`
 }
+
 type Status struct {
-	Phase           string  `json:"phase"`
-	Running         bool    `json:"running"`
-	RoomID          uint32  `json:"room_id"`
-	Players         int     `json:"players"`
-	Account         string  `json:"account"`
-	ProtocolID      uint8   `json:"protocol_id"`
-	ConnectedAt     string  `json:"connected_at"`
-	RetryAt         string  `json:"retry_at"`
-	Attempts        int     `json:"attempts"`
-	LastError       string  `json:"last_error"`
-	UpstreamOnline  bool    `json:"upstream_online"`
-	UpstreamVersion string  `json:"upstream_version"`
-	TokenSet        bool    `json:"token_set"`
-	Config          Config  `json:"config"`
-	Events          []Event `json:"events"`
+	Phase           string        `json:"phase"`
+	Running         bool          `json:"running"`
+	RoomID          uint32        `json:"room_id"`
+	Players         int           `json:"players"`
+	Account         string        `json:"account"`
+	ProtocolID      uint8         `json:"protocol_id"`
+	ConnectedAt     string        `json:"connected_at"`
+	RetryAt         string        `json:"retry_at"`
+	Attempts        int           `json:"attempts"`
+	LastError       string        `json:"last_error"`
+	UpstreamOnline  bool          `json:"upstream_online"`
+	UpstreamVersion string        `json:"upstream_version"`
+	TokenSet        bool          `json:"token_set"`
+	Config          config.Config `json:"config"`
+	Events          []Event       `json:"events"`
 }
+
 type Manager struct {
 	mu       sync.Mutex
-	cfg      Config
+	cfg      config.Config
 	token    string
 	status   Status
 	cancel   context.CancelFunc
@@ -51,9 +62,10 @@ type Manager struct {
 	exitOnce sync.Once
 }
 
-func newManager(dir string, c Config, token string, logger *log.Logger) *Manager {
+func newManager(dir string, c config.Config, token string, logger *log.Logger) *Manager {
 	return &Manager{dir: dir, cfg: c, token: token, logger: logger, exit: make(chan struct{}), status: Status{Phase: "stopped", Events: []Event{}}}
 }
+
 func (m *Manager) snapshot() Status {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -63,9 +75,10 @@ func (m *Manager) snapshot() Status {
 	s.Events = append([]Event{}, s.Events...)
 	return s
 }
+
 func (m *Manager) event(message string) {
 	m.mu.Lock()
-	message = sanitize(message, m.token)
+	message = redact.Sanitize(message, m.token)
 	m.status.Events = append(m.status.Events, Event{time.Now().Format("15:04:05"), message})
 	if len(m.status.Events) > 120 {
 		m.status.Events = m.status.Events[len(m.status.Events)-120:]
@@ -73,21 +86,24 @@ func (m *Manager) event(message string) {
 	m.mu.Unlock()
 	m.logger.Println(message)
 }
+
 func (m *Manager) update(fn func(*Status)) {
 	m.mu.Lock()
 	fn(&m.status)
 	m.mu.Unlock()
 	m.persistStatus()
 }
+
 func (m *Manager) persistStatus() {
 	s := m.snapshot()
 	s.Config.RoomPassword = ""
 	s.Events = nil
 	b, _ := json.MarshalIndent(s, "", "  ")
-	_ = atomicWrite(filepath.Join(m.dir, "logs", "status.json"), b, 0600)
+	_ = fileutil.AtomicWrite(filepath.Join(m.dir, "logs", "status.json"), b, 0600)
 }
-func (m *Manager) configure(c Config, token *string) error {
-	if err := c.validate(); err != nil {
+
+func (m *Manager) configure(c config.Config, token *string) error {
+	if err := c.Validate(); err != nil {
 		return err
 	}
 	m.mu.Lock()
@@ -101,11 +117,11 @@ func (m *Manager) configure(c Config, token *string) error {
 	if token != nil && strings.TrimSpace(*token) == "" {
 		return fmt.Errorf("新令牌为空；保持原令牌请留空输入框")
 	}
-	if err := saveConfig(filepath.Join(m.dir, "config.json"), c); err != nil {
+	if err := config.Save(filepath.Join(m.dir, "config.json"), c); err != nil {
 		return err
 	}
 	if token != nil {
-		if err := saveSecret(filepath.Join(m.dir, "secrets.dat"), strings.TrimSpace(*token)); err != nil {
+		if err := secret.Save(filepath.Join(m.dir, "secrets.dat"), strings.TrimSpace(*token)); err != nil {
 			return err
 		}
 		m.token = strings.TrimSpace(*token)
@@ -113,6 +129,7 @@ func (m *Manager) configure(c Config, token *string) error {
 	m.cfg = c
 	return nil
 }
+
 func (m *Manager) start() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -122,7 +139,7 @@ func (m *Manager) start() error {
 	if m.token == "" {
 		return fmt.Errorf("请先保存机器人令牌")
 	}
-	session, err := acquireAccountSession(m.token)
+	session, err := session.Acquire(m.token)
 	if err != nil {
 		return err
 	}
@@ -135,6 +152,7 @@ func (m *Manager) start() error {
 	go m.run(ctx, m.cfg, m.token, m.finished, session)
 	return nil
 }
+
 func (m *Manager) stop() {
 	m.mu.Lock()
 	if m.cancel != nil {
@@ -142,6 +160,7 @@ func (m *Manager) stop() {
 	}
 	m.mu.Unlock()
 }
+
 func (m *Manager) wait() {
 	m.mu.Lock()
 	done := m.finished
@@ -150,20 +169,8 @@ func (m *Manager) wait() {
 		<-done
 	}
 }
-func pingUpstream(ctx context.Context, addr string) (string, error) {
-	child, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	pong, err := raknet.PingContext(child, addr)
-	if err != nil {
-		return "", err
-	}
-	fields := strings.Split(string(pong), ";")
-	if len(fields) < 4 || fields[0] != "MCPE" {
-		return "", fmt.Errorf("目标不是 Bedrock 服务器")
-	}
-	return fields[3], nil
-}
-func (m *Manager) run(ctx context.Context, cfg Config, token string, done chan struct{}, session *accountSession) {
+
+func (m *Manager) run(ctx context.Context, cfg config.Config, token string, done chan struct{}, session *session.Session) {
 	defer func() {
 		m.update(func(s *Status) { s.Running = false; s.Phase = "stopped"; s.RoomID = 0; s.Players = 0; s.RetryAt = "" })
 		m.mu.Lock()
@@ -183,32 +190,32 @@ func (m *Manager) run(ctx context.Context, cfg Config, token string, done chan s
 			s.RetryAt = ""
 			s.Attempts++
 		})
-		version, err := pingUpstream(ctx, cfg.Upstream)
+		version, err := bridge.PingUpstream(ctx, cfg.Upstream)
 		if err == nil {
 			m.update(func(s *Status) { s.UpstreamOnline = true; s.UpstreamVersion = version; s.Phase = "authenticating" })
 			m.event("本地 Bedrock 服务器在线，版本 " + version + "；开始鉴权")
-			var info CreateInfo
+			var info auth.CreateInfo
 			authCtx, cancel := context.WithTimeout(ctx, 75*time.Second)
-			info, err = fetchCreate(authCtx, cfg, token)
+			info, err = auth.FetchCreate(authCtx, cfg, token)
 			cancel()
 			if err == nil {
 				m.update(func(s *Status) { s.Account = info.UserPlayerName; s.ProtocolID = info.ProtocolID; s.Phase = "creating" })
 				m.event(fmt.Sprintf("鉴权通过，房间协议 %d；连接开房节点", info.ProtocolID))
-				var room *Room
+				var opened *room.Room
 				createCtx, cancel := context.WithTimeout(ctx, 35*time.Second)
-				room, err = openRoom(createCtx, cfg, info, m.event)
+				opened, err = room.Open(createCtx, cfg, info, m.event)
 				cancel()
 				if err == nil {
 					failures = 0
 					m.update(func(s *Status) {
 						s.Phase = "online"
-						s.RoomID = room.ID
+						s.RoomID = opened.ID
 						s.ConnectedAt = time.Now().Format(time.RFC3339)
 						s.LastError = ""
 					})
-					m.event(fmt.Sprintf("房间 %d 已上线，房主机器人持续保活", room.ID))
-					err = m.serveRoom(ctx, cfg, room)
-					room.Close()
+					m.event(fmt.Sprintf("房间 %d 已上线，房主机器人持续保活", opened.ID))
+					err = m.serveRoom(ctx, cfg, opened)
+					opened.Close()
 				}
 			}
 		} else {
@@ -229,7 +236,7 @@ func (m *Manager) run(ctx context.Context, cfg Config, token string, done chan s
 		if err == nil {
 			err = net.ErrClosed
 		}
-		message := sanitize(err.Error(), token)
+		message := redact.Sanitize(err.Error(), token)
 		m.update(func(s *Status) {
 			s.Phase = "retrying"
 			s.LastError = message
@@ -248,14 +255,14 @@ func (m *Manager) run(ctx context.Context, cfg Config, token string, done chan s
 	}
 }
 
-func (m *Manager) serveRoom(ctx context.Context, cfg Config, room *Room) error {
+func (m *Manager) serveRoom(ctx context.Context, cfg config.Config, r *room.Room) error {
 	sessionCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var bridges sync.WaitGroup
 	acceptDone := make(chan struct{})
 	defer func() {
 		cancel()
-		room.Close()
+		r.Close()
 		<-acceptDone
 		bridges.Wait()
 	}()
@@ -263,7 +270,7 @@ func (m *Manager) serveRoom(ctx context.Context, cfg Config, room *Room) error {
 	go func() {
 		defer close(acceptDone)
 		for {
-			conn, err := room.listener.Accept()
+			conn, err := r.Accept()
 			if err != nil {
 				errors <- err
 				return
@@ -301,16 +308,16 @@ func (m *Manager) serveRoom(ctx context.Context, cfg Config, room *Room) error {
 				}
 				defer server.Close()
 				m.event("本地服务器 RakNet 连接成功")
-				backend, err := newBedrockBridge(server, m.event)
+				backend, err := bridge.New(server, m.event)
 				if err != nil {
 					m.event("无法生成后端连接密钥")
 					return
 				}
-				defer backend.forgetSkin()
-				clientStream := &observedStream{packetStream: client, label: "玩家 → 本地服务器", trace: m.event}
-				serverStream := &observedStream{packetStream: backend, label: "本地服务器 → 玩家", trace: m.event}
-				err = relayPackets(sessionCtx, clientStream, serverStream)
-				m.event(fmt.Sprintf("玩家转发连接已断开：%v；上行 %d 包，下行 %d 包", err, clientStream.count, serverStream.count))
+				defer backend.ForgetSkin()
+				clientStream := &relay.Observed{Stream: client, Label: "玩家 → 本地服务器", Trace: m.event}
+				serverStream := &relay.Observed{Stream: backend, Label: "本地服务器 → 玩家", Trace: m.event}
+				err = relay.Relay(sessionCtx, clientStream, serverStream)
+				m.event(fmt.Sprintf("玩家转发连接已断开：%v；上行 %d 包，下行 %d 包", err, clientStream.Count, serverStream.Count))
 			}(conn.(*nethernet.Conn))
 		}
 	}()
@@ -321,14 +328,14 @@ func (m *Manager) serveRoom(ctx context.Context, cfg Config, room *Room) error {
 		case <-ctx.Done():
 			cancel()
 			return ctx.Err()
-		case <-room.done:
+		case <-r.Done():
 			cancel()
-			return room.Error()
+			return r.Error()
 		case err := <-errors:
 			cancel()
 			return fmt.Errorf("WebRTC 信令断开: %w", err)
 		case <-ticker.C:
-			version, err := pingUpstream(sessionCtx, cfg.Upstream)
+			version, err := bridge.PingUpstream(sessionCtx, cfg.Upstream)
 			m.update(func(s *Status) {
 				s.UpstreamOnline = err == nil
 				if err == nil {

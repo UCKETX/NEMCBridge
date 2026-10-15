@@ -81,10 +81,10 @@ def main():
         shutil.copyfile(binary, executable)
         executable.chmod(0o755)
         for source, destination in (
-            ("RELEASE_README.md", "README.md"),
+            ("docs/RELEASE_README.md", "README.md"),
             ("config.example.json", "config.example.json"),
             ("THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md"),
-            ("协议参考记录.md", "协议参考记录.md"),
+            ("docs/协议参考记录.md", "协议参考记录.md"),
         ):
             shutil.copyfile(root / source, package / destination)
         copy_licenses(root, package / "licenses")
