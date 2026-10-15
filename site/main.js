@@ -2,7 +2,7 @@
   "use strict";
 
   const REPO = "UCKETX/NEMCBridge";
-  const FALLBACK_TAG = "v0.1.5";
+  const FALLBACK_TAG = "v0.1.6";
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
