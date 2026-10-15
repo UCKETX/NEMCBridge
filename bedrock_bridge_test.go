@@ -15,11 +15,12 @@ import (
 	stdprotocol "github.com/sandertv/gophertunnel/minecraft/protocol"
 	stdpacket "github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
 
-func makeOfflineTestLogin(t *testing.T) []byte {
+func makeOfflineTestLogin(t *testing.T, overrides ...map[string]any) []byte {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	identityID := uuid.NewString()
@@ -27,9 +28,15 @@ func makeOfflineTestLogin(t *testing.T) []byte {
 	pub, _ := signGameJWT(key, map[string]any{"extraData": map[string]any{"identity": identityID, "displayName": "KeeperTest" + identityID[:6], "XUID": ""}, "identityPublicKey": base64.StdEncoding.EncodeToString(publicRaw)})
 	chain, _ := json.Marshal(map[string]any{"chain": []string{pub}})
 	envelope, _ := json.Marshal(map[string]any{"Certificate": string(chain), "AuthenticationType": 2, "Token": ""})
-	skin, _ := signGameJWT(key, map[string]any{
+	claims := map[string]any{
 		"ClientRandomId": time.Now().UnixNano(), "CurrentInputMode": 1, "DefaultInputMode": 1, "DeviceOS": 7, "DeviceModel": "Windows", "DeviceId": uuid.NewString(), "GameVersion": "1.21.124", "LanguageCode": "en_US", "SelfSignedId": uuid.NewString(), "ServerAddress": "127.0.0.1:19132", "SkinId": "KeeperTest", "SkinData": base64.StdEncoding.EncodeToString(make([]byte, 64*64*4)), "SkinImageHeight": 64, "SkinImageWidth": 64, "SkinResourcePatch": base64.StdEncoding.EncodeToString([]byte(`{"geometry":{"default":"geometry.humanoid.custom"}}`)), "SkinGeometryData": base64.StdEncoding.EncodeToString([]byte(`{"format_version":"1.12.0","minecraft:geometry":[]}`)), "SkinGeometryDataEngineVersion": "1.21.124", "AnimatedImageData": []any{}, "PersonaPieces": []any{}, "PieceTintColors": []any{}, "PersonaSkin": false, "PremiumSkin": false, "TrustedSkin": true, "PlayFabId": "", "CapeData": "", "CapeImageHeight": 0, "CapeImageWidth": 0,
-	})
+	}
+	for _, fields := range overrides {
+		for key, value := range fields {
+			claims[key] = value
+		}
+	}
+	skin, _ := signGameJWT(key, claims)
 	request := binary.LittleEndian.AppendUint32(nil, uint32(len(envelope)))
 	request = append(request, envelope...)
 	request = binary.LittleEndian.AppendUint32(request, uint32(len(skin)))
@@ -52,7 +59,19 @@ func TestWebRTCFullWorldExchange(t *testing.T) {
 	testBDSWorldExchange(t, false, true)
 }
 
-func testBDSWorldExchange(t *testing.T, cache, webRTC bool) {
+func testBDSWorldExchange(t *testing.T, cache, webRTC bool, skinOverrides ...map[string]any) {
+	testBDSWorldExchangeOptions(t, cache, webRTC, false, skinOverrides...)
+}
+
+func TestBDSChatRoundTrip(t *testing.T) {
+	testBDSWorldExchangeOptions(t, false, false, true)
+}
+
+func TestWebRTCChatRoundTrip(t *testing.T) {
+	testBDSWorldExchangeOptions(t, false, true, true)
+}
+
+func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOverrides ...map[string]any) {
 	addr := os.Getenv("LOBBYKEEPER_BDS_TEST")
 	if addr == "" {
 		t.Skip("requires local BDS")
@@ -79,7 +98,22 @@ func testBDSWorldExchange(t *testing.T, cache, webRTC bool) {
 	if _, err = stream.ReadPacket(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = stream.Write(makeOfflineTestLogin(t)); err != nil {
+	login := makeOfflineTestLogin(t, skinOverrides...)
+	loginPackets, err := splitGameBatch(login[2:])
+	if err != nil || len(loginPackets) != 1 {
+		t.Fatal("test login batch invalid", err)
+	}
+	_, loginHeaderSize := binary.Uvarint(loginPackets[0])
+	_, loginLengthSize := binary.Uvarint(loginPackets[0][loginHeaderSize+4:])
+	loginIdentity, _, err := parseBridgeIdentity(loginPackets[0][loginHeaderSize+4+loginLengthSize:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	loginUUID, err := uuid.Parse(loginIdentity["identity"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = stream.Write(login); err != nil {
 		t.Fatal(err)
 	}
 	cacheFlag := byte(0)
@@ -89,7 +123,11 @@ func testBDSWorldExchange(t *testing.T, cache, webRTC bool) {
 	loggedIn := false
 	worldLoaded := false
 	biomeLoaded, playerListed, chunkProvided := false, false, false
+	skinVerified := len(skinOverrides) == 0
 	subChunkRequested, terrainProvided := false, false
+	chatSent, chatReceived := false, false
+	chatMessage := "LobbyKeeper 中文双向聊天 🌍 " + loginUUID.String()[:8]
+	var runtimeID uint64
 	seenIDs := map[uint64]bool{}
 	for i := 0; i < 512; i++ {
 		p, err := stream.ReadPacket()
@@ -110,6 +148,18 @@ func testBDSWorldExchange(t *testing.T, cache, webRTC bool) {
 				t.Logf("world packet id=%d bytes=%d batch=%d wire=%d cache=%v", id&0x3ff, len(pk), i, len(p), cache)
 			}
 			seenIDs[id&0x3ff] = true
+			if id&0x3ff == stdpacket.IDText && chatSent {
+				buffer := bytes.NewBuffer(pk[n:])
+				var message stdpacket.Text
+				message.Marshal(stdprotocol.NewReader(buffer, 0, true))
+				if message.Message == chatMessage {
+					if !bytes.Equal(buffer.Bytes(), []byte{0}) {
+						t.Fatal("chat reply missing NetEase extension")
+					}
+					chatReceived = true
+					t.Log("BDS echoed Unicode chat through both protocol conversions")
+				}
+			}
 			if id&0x3ff == 3 {
 				t.Fatal("RakNet encryption handshake leaked to NetherNet")
 			}
@@ -153,6 +203,7 @@ func testBDSWorldExchange(t *testing.T, cache, webRTC bool) {
 				}
 				t.Log("real BDS resource-pack exchange and independent StartGame 860 decoding passed")
 				worldLoaded = true
+				runtimeID = world.EntityRuntimeID
 			}
 			if id&0x3ff == 122 {
 				if !worldLoaded {
@@ -170,6 +221,55 @@ func testBDSWorldExchange(t *testing.T, cache, webRTC bool) {
 				var list stdpacket.PlayerList
 				list.Marshal(stdprotocol.NewReader(buffer, 0, true))
 				if list.ActionType == 0 && len(list.Entries) > 0 {
+					for _, entry := range list.Entries {
+						t.Logf("BDS skin: pixels=%dx%d bytes=%d geometryBytes=%d resourcePatchBytes=%d trusted=%v persona=%v", entry.Skin.SkinImageWidth, entry.Skin.SkinImageHeight, len(entry.Skin.SkinData), len(entry.Skin.SkinGeometry), len(entry.Skin.SkinResourcePatch), entry.Skin.Trusted, entry.Skin.PersonaSkin)
+						if os.Getenv("LOBBYKEEPER_TRACE_SKIN_TEST") != "" {
+							var geometry map[string]any
+							_ = json.Unmarshal(entry.Skin.SkinGeometry, &geometry)
+							var descriptions []any
+							if models, ok := geometry["minecraft:geometry"].([]any); ok {
+								for _, model := range models {
+									if object, ok := model.(map[string]any); ok {
+										descriptions = append(descriptions, object["description"])
+									}
+								}
+							}
+							for name, model := range geometry {
+								if object, ok := model.(map[string]any); ok {
+									descriptions = append(descriptions, map[string]any{"legacy_model": name, "texture_width": object["texturewidth"], "texture_height": object["textureheight"]})
+								}
+							}
+							description, _ := json.Marshal(descriptions)
+							var patch bytes.Buffer
+							_ = json.Compact(&patch, entry.Skin.SkinResourcePatch)
+							var opaque int
+							for i := 3; i < len(entry.Skin.SkinData); i += 4 {
+								if entry.Skin.SkinData[i] > 0 {
+									opaque++
+								}
+							}
+							t.Logf("skin model: format=%v description=%s patch=%s engine=%s opaquePixels=%d premium=%v override=%v primary=%v", geometry["format_version"], description, patch.Bytes(), entry.Skin.GeometryDataEngineVersion, opaque, entry.Skin.PremiumSkin, entry.Skin.OverrideAppearance, entry.Skin.PrimaryUser)
+						}
+						for _, override := range skinOverrides {
+							if entry.UUID != loginUUID {
+								continue
+							}
+							if !strings.HasPrefix(entry.Skin.SkinID, "LobbyKeeper_") || entry.Skin.PremiumSkin || entry.Skin.PlayFabID != "" || !entry.Skin.OverrideAppearance {
+								t.Fatal("portable custom skin identity or catalog flags did not survive BDS")
+							}
+							width := uint32(override["SkinImageWidth"].(int))
+							if width > 128 {
+								width = 128
+								if len(entry.Skin.SkinGeometry) < 100 || len(entry.Skin.SkinResourcePatch) == 0 {
+									t.Fatal("BDS discarded converted high-resolution model")
+								}
+							}
+							if entry.Skin.SkinImageWidth != width || entry.Skin.SkinImageHeight != width || len(entry.Skin.SkinData) != int(width*width*4) || !entry.Skin.Trusted {
+								t.Fatal("BDS skin dimensions/texture/trust did not survive bridge")
+							}
+							skinVerified = true
+						}
+					}
 					if !bytes.Equal(buffer.Bytes(), make([]byte, len(list.Entries)*8)) {
 						t.Fatal("real BDS player list missing NetEase extra groups")
 					}
@@ -259,6 +359,24 @@ func testBDSWorldExchange(t *testing.T, cache, webRTC bool) {
 			}
 		}
 		if worldLoaded && biomeLoaded && playerListed && chunkProvided && terrainProvided {
+			if !skinVerified {
+				t.Fatal("BDS never broadcast the test player's skin")
+			}
+			if chat && !chatSent {
+				writeTestGamePacket(t, stream, &stdpacket.SetLocalPlayerAsInitialised{EntityRuntimeID: runtimeID})
+				message := &stdpacket.Text{TextType: stdpacket.TextTypeChat, SourceName: loginIdentity["displayName"].(string), Message: chatMessage}
+				var body bytes.Buffer
+				message.Marshal(stdprotocol.NewWriter(&body, 0))
+				wire := append([]byte{9}, body.Bytes()...)
+				wire = append(wire, 0)
+				if _, err := stream.Write(append([]byte{0xfe, 0xff}, joinGameBatch([][]byte{wire})...)); err != nil {
+					t.Fatal(err)
+				}
+				chatSent = true
+			}
+			if chat && !chatReceived {
+				continue
+			}
 			t.Logf("real BDS initialization and terrain subchunk delivery passed: cache=%v WebRTC=%v", cache, webRTC)
 			return
 		}

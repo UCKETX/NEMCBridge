@@ -103,7 +103,9 @@ func (c *Conn) Write(b []byte) (n int, err error) {
 	case <-c.closed:
 		return n, net.ErrClosed
 	default:
-		segments := uint8(len(b) / maxMessageSize)
+		// Only the continuation flag is sent on the wire. Keep the local count
+		// as an int: uint8 wrapped at 256 fragments and ended a batch early.
+		segments := len(b) / maxMessageSize
 		if len(b)%maxMessageSize != 0 {
 			segments++ // If there's a remainder, we need an additional segment.
 		}

@@ -122,13 +122,17 @@ func (m *Manager) start() error {
 	if m.token == "" {
 		return fmt.Errorf("请先保存机器人令牌")
 	}
+	session, err := acquireAccountSession(m.token)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
 	m.finished = make(chan struct{})
 	m.status.Running = true
 	m.status.LastError = ""
 	m.status.Attempts = 0
-	go m.run(ctx, m.cfg, m.token, m.finished)
+	go m.run(ctx, m.cfg, m.token, m.finished, session)
 	return nil
 }
 func (m *Manager) stop() {
@@ -159,10 +163,11 @@ func pingUpstream(ctx context.Context, addr string) (string, error) {
 	}
 	return fields[3], nil
 }
-func (m *Manager) run(ctx context.Context, cfg Config, token string, done chan struct{}) {
+func (m *Manager) run(ctx context.Context, cfg Config, token string, done chan struct{}, session *accountSession) {
 	defer func() {
 		m.update(func(s *Status) { s.Running = false; s.Phase = "stopped"; s.RoomID = 0; s.Players = 0; s.RetryAt = "" })
 		m.mu.Lock()
+		session.Close()
 		m.cancel = nil
 		close(done)
 		m.mu.Unlock()

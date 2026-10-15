@@ -35,6 +35,8 @@ func main() {
 }
 func runMain() error {
 	showVersion := flag.Bool("version", false, "显示版本和源代码提交")
+	nativeRoom := flag.String("inspect-native-room", "", "诊断指定原生网易房间的皮肤包，只输出结构和尺寸")
+	nativePassword := flag.String("inspect-native-password", "", "诊断房间密码")
 	base := flag.String("data-dir", "", "配置和日志目录（默认程序所在目录）")
 	headless := flag.Bool("headless", false, "不自动打开浏览器")
 	webPort := flag.Int("web-port", 0, "临时覆盖控制台端口")
@@ -64,6 +66,15 @@ func runMain() error {
 	cfg, err := loadConfig(filepath.Join(dir, "config.json"))
 	if err != nil {
 		return fmt.Errorf("配置读取失败: %w", err)
+	}
+	if *nativeRoom != "" {
+		token, err := loadSecret(filepath.Join(dir, "secrets.dat"))
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		return inspectNativeSkinRoom(ctx, cfg, token, *nativeRoom, *nativePassword, func(message string) { fmt.Println(message) })
 	}
 	if *webPort != 0 {
 		cfg.WebPort = *webPort
@@ -99,6 +110,14 @@ func runMain() error {
 	}
 	defer logFile.Close()
 	if *check {
+		session, err := acquireAccountSession(token)
+		if err != nil {
+			return err
+		}
+		defer session.Close()
+		if err := rejectRunningRoom(context.Background(), cfg.WebPort); err != nil {
+			return err
+		}
 		version, err := pingUpstream(context.Background(), cfg.Upstream)
 		if err != nil {
 			return fmt.Errorf("本地 Bedrock 服务器不可达")

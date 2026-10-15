@@ -28,15 +28,16 @@ import (
 // are otherwise opaque and keep their original compression and packet layout.
 type bedrockBridge struct {
 	packetStream
-	writeMu         sync.Mutex
-	key             *ecdsa.PrivateKey
-	send, recv      *gameCipher
-	trace           func(string)
-	reads, writes   int
-	worldPatched    bool
-	biomePatched    bool
-	clientStages    uint32
-	serverPacketIDs map[uint64]bool
+	writeMu          sync.Mutex
+	key              *ecdsa.PrivateKey
+	send, recv       *gameCipher
+	trace            func(string)
+	reads, writes    int
+	worldPatched     bool
+	biomePatched     bool
+	clientStages     uint32
+	serverPacketIDs  map[uint64]bool
+	largeBatchLogged bool
 }
 
 func newBedrockBridge(server packetStream, trace func(string)) (*bedrockBridge, error) {
@@ -216,6 +217,16 @@ func (b *bedrockBridge) rewriteLogin(wire []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if b.trace != nil {
+			b.trace("客户端皮肤元数据（不含内容）：" + skinClaimsSummary(skin))
+		}
+		skinChange, err := normalizeLoginSkin(skin)
+		if err != nil {
+			return nil, err
+		}
+		if skinChange != "" && b.trace != nil {
+			b.trace(skinChange)
+		}
 		publicRaw, _ := x509.MarshalPKIXPublicKey(&b.key.PublicKey)
 		publicText := base64.StdEncoding.EncodeToString(publicRaw)
 		identity["XUID"] = "" // Local offline identity does not claim Xbox authentication.
@@ -393,11 +404,18 @@ func signGameJWT(key *ecdsa.PrivateKey, claims any) (string, error) {
 	return content + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
+// BDS may combine many terrain packets in one compressed batch while moving.
+// The inflated size is distinct from the much smaller WebRTC wire size.
+const maxDecodedGameBatch = 32 << 20
+
 func decodeGameCompression(b []byte) ([]byte, error) {
 	if len(b) == 0 {
 		return nil, io.ErrUnexpectedEOF
 	}
 	if b[0] == 0xff {
+		if len(b)-1 > maxDecodedGameBatch {
+			return nil, errors.New("游戏批次超出 32MiB（解压后）")
+		}
 		return b[1:], nil
 	}
 	if b[0] != 0 {
@@ -405,9 +423,9 @@ func decodeGameCompression(b []byte) ([]byte, error) {
 	}
 	r := flate.NewReader(bytes.NewReader(b[1:]))
 	defer r.Close()
-	data, err := io.ReadAll(io.LimitReader(r, (2<<20)+1))
-	if len(data) > 2<<20 {
-		return nil, errors.New("游戏批次超出 2MB")
+	data, err := io.ReadAll(io.LimitReader(r, maxDecodedGameBatch+1))
+	if len(data) > maxDecodedGameBatch {
+		return nil, errors.New("游戏批次超出 32MiB（解压后）")
 	}
 	return data, err
 }

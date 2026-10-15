@@ -8,12 +8,17 @@ import (
 	"fmt"
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
 func (b *bedrockBridge) patchInitialization860(compressed []byte) ([]byte, error) {
 	batch, err := decodeGameCompression(compressed)
 	if err != nil {
 		return nil, err
+	}
+	if len(batch) > 2<<20 && !b.largeBatchLogged && b.trace != nil {
+		b.largeBatchLogged = true
+		b.trace(fmt.Sprintf("大游戏批次已接收：传输 %d 字节，解压后 %d 字节，保留原压缩方式", len(compressed), len(batch)))
 	}
 	packets, err := splitGameBatch(batch)
 	if err != nil {
@@ -26,6 +31,21 @@ func (b *bedrockBridge) patchInitialization860(compressed []byte) ([]byte, error
 			return nil, errors.New("初始化数据包头无效")
 		}
 		switch id & 0x3ff {
+		case 9:
+			packets[i], err = patchText860(pk, true)
+			if err != nil {
+				return nil, err
+			}
+			changed = true
+			if b.trace != nil {
+				b.trace("聊天协议转换：已补齐网易消息扩展，不记录消息内容")
+			}
+		case 93:
+			packets[i], err = patchPlayerSkin860(pk, true)
+			if err != nil {
+				return nil, err
+			}
+			changed = true
 		case 148:
 			packets[i], err = patchStackResponseContainers860(pk)
 			if err != nil {
@@ -88,7 +108,7 @@ func (b *bedrockBridge) patchInitialization860(compressed []byte) ([]byte, error
 			}
 		case 63:
 			var entries int
-			packets[i], entries, err = patchPlayerList860(pk)
+			packets[i], entries, err = patchPlayerList860(pk, b.trace)
 			if err != nil {
 				return nil, err
 			}
@@ -159,6 +179,22 @@ func patchClientInitialization860(compressed []byte) ([]byte, error) {
 	changed := false
 	for i, pk := range packets {
 		id, n := binary.Uvarint(pk)
+		if n > 0 && id&0x3ff == 9 {
+			packets[i], err = patchText860(pk, false)
+			if err != nil {
+				return nil, err
+			}
+			changed = true
+			continue
+		}
+		if n > 0 && id&0x3ff == 93 {
+			packets[i], err = patchPlayerSkin860(pk, false)
+			if err != nil {
+				return nil, err
+			}
+			changed = true
+			continue
+		}
 		if n > 0 && (id&0x3ff == 147 || id&0x3ff == 30) {
 			packets[i], err = patchClientInventory860(pk)
 			if err != nil {
@@ -213,7 +249,12 @@ func patchClientInitialization860(compressed []byte) ([]byte, error) {
 // optional-entry bool[], optional-entry bool[], string[], uint32[], bool[].
 // Each group has exactly the player count, without another length prefix.
 // Eulogist 4.8.0 uses absent entries, empty strings and zero levels/flags.
-func patchPlayerList860(pk []byte) ([]byte, int, error) {
+func patchPlayerList860(pk []byte, traces ...func(string)) (result []byte, entries int, err error) {
+	defer func() {
+		if recover() != nil {
+			result, entries, err = nil, 0, errors.New("玩家列表皮肤或字段格式无效")
+		}
+	}()
 	_, n := binary.Uvarint(pk)
 	if n <= 0 || len(pk) < n+2 {
 		return nil, 0, errors.New("玩家列表包不完整")
@@ -228,7 +269,27 @@ func patchPlayerList860(pk []byte) ([]byte, int, error) {
 	if m <= 0 || count > 1024 || count > uint64(len(pk)-n-1-m)/17 {
 		return nil, 0, errors.New("玩家列表数量或长度无效")
 	}
-	result := append([]byte(nil), pk...)
+	buffer := bytes.NewBuffer(pk[n:])
+	var list packet.PlayerList
+	list.Marshal(protocol.NewReader(buffer, 0, true))
+	if buffer.Len() != 0 || len(list.Entries) != int(count) {
+		return nil, 0, errors.New("玩家列表包含未知字段或数量不一致")
+	}
+	for i := range list.Entries {
+		skin := &list.Entries[i].Skin
+		if len(traces) > 0 && traces[0] != nil {
+			traces[0](fmt.Sprintf("后端玩家皮肤：pixels=%dx%d RGBA=%d geometry=%d patch=%d trusted=%v persona=%v premium=%v override=%v", skin.SkinImageWidth, skin.SkinImageHeight, len(skin.SkinData), len(skin.SkinGeometry), len(skin.SkinResourcePatch), skin.Trusted, skin.PersonaSkin, skin.PremiumSkin, skin.OverrideAppearance))
+		}
+		if len(list.Entries[i].Skin.SkinData) > 0 {
+			list.Entries[i].Skin.Trusted = true
+		}
+		if _, err := neteaseClassicSkin(&list.Entries[i].Skin); err != nil {
+			return nil, 0, err
+		}
+	}
+	var body bytes.Buffer
+	list.Marshal(protocol.NewWriter(&body, 0))
+	result = append(append([]byte(nil), pk[:n]...), body.Bytes()...)
 	result = append(result, make([]byte, int(count)*8)...)
 	return result, int(count), nil
 }

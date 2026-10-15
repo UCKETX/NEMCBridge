@@ -177,13 +177,13 @@ func TestPlayerListPreservesSkinsAndAppendsNetEaseGroups(t *testing.T) {
 	if err != nil || count != 2 {
 		t.Fatal("player list conversion failed", err)
 	}
-	if !bytes.Equal(converted[:len(wire)], wire) || !bytes.Equal(converted[len(wire):], make([]byte, 16)) {
+	if !bytes.Equal(converted[:len(wire)-2], wire[:len(wire)-2]) || !bytes.Equal(converted[len(wire)-2:len(wire)], []byte{1, 1}) || !bytes.Equal(converted[len(wire):], make([]byte, 16)) {
 		t.Fatal("player skin/identity bytes changed or extension group widths incorrect")
 	}
 	buffer := bytes.NewBuffer(converted[1:])
 	var decoded packet.PlayerList
 	decoded.Marshal(protocol.NewReader(buffer, 0, true))
-	if buffer.Len() != 16 || !decoded.Entries[0].Host || !decoded.Entries[0].Skin.Trusted || !decoded.Entries[1].Teacher {
+	if buffer.Len() != 16 || !decoded.Entries[0].Host || !decoded.Entries[0].Skin.Trusted || !decoded.Entries[1].Skin.Trusted || !decoded.Entries[1].Teacher {
 		t.Fatal("independent standard reader lost player metadata")
 	}
 	remove := []byte{63, 1, 0}
