@@ -47,19 +47,7 @@ func TestAuthContractAndSensitiveErrors(t *testing.T) {
 		t.Fatal("credential leak or success:false accepted")
 	}
 }
-func TestAuthRejectsCredentialRedirect(t *testing.T) {
-	cfg := config.Default()
-	request, _ := http.NewRequest("POST", "https://attacker.example/auth", nil)
-	if newAuthHTTP(cfg.AuthServer).CheckRedirect(request, []*http.Request{{}}) == nil {
-		t.Fatal("credentials may follow arbitrary redirect")
-	}
-	request, _ = http.NewRequest("POST", "https://fgauth.ipv4.ucket.top:9380/api/phoenix/tan_lobby_create", nil)
-	if err := newAuthHTTP(cfg.AuthServer).CheckRedirect(request, []*http.Request{{}}); err != nil {
-		t.Fatal("known FGAuth redirect rejected")
-	}
-}
-
-func TestAuthIPv4IPv6RedirectPolicy(t *testing.T) {
+func TestAuthProviderIndependentRedirectPolicy(t *testing.T) {
 	for _, tc := range []struct {
 		name, base, target string
 		allowed            bool
@@ -72,12 +60,15 @@ func TestAuthIPv4IPv6RedirectPolicy(t *testing.T) {
 		{"default HTTPS port and case", "https://FGAUTH.UCKET.TOP:443", "https://fgauth.ipv6.ucket.top:8888/auth", true},
 		{"custom same origin", "https://auth.example:9443", "https://AUTH.EXAMPLE:9443/auth", true},
 		{"loopback same origin", "http://127.0.0.1:8080", "http://127.0.0.1:8080/auth", true},
-		{"arbitrary domain", "https://fgauth.ucket.top", "https://attacker.example/auth", false},
-		{"suffix spoof", "https://fgauth.ucket.top", "https://fgauth.ipv6.ucket.top.attacker.example:8888/auth", false},
-		{"unexpected port", "https://fgauth.ucket.top", "https://fgauth.ipv6.ucket.top:9999/auth", false},
-		{"unexpected subdomain", "https://fgauth.ucket.top", "https://other.ucket.top/auth", false},
-		{"foreign root", "https://auth.example", "https://fgauth.ipv6.ucket.top:8888/auth", false},
-		{"foreign root port", "https://fgauth.ucket.top:9443", "https://fgauth.ipv6.ucket.top:8888/auth", false},
+		{"other provider domain", "https://auth.example", "https://routing.provider.example/auth", true},
+		{"custom service port", "https://auth.example", "https://routing.provider.example:12345/auth", true},
+		{"alternate IPv6 port", "https://fgauth.ucket.top", "https://fgauth.ipv6.ucket.top:9999/auth", true},
+		{"alternate subdomain", "https://fgauth.ucket.top", "https://other.ucket.top/auth", true},
+		{"custom root", "https://auth.example", "https://fgauth.ipv6.ucket.top:8888/auth", true},
+		{"custom root port", "https://fgauth.ucket.top:9443", "https://fgauth.ipv6.ucket.top:8888/auth", true},
+		{"local HTTP routing", "http://localhost:8080", "http://127.0.0.1:8081/auth", true},
+		{"local HTTP to remote plaintext", "http://localhost:8080", "http://auth.example/auth", false},
+		{"unsupported protocol", "https://auth.example", "ftp://auth.example/auth", false},
 		{"downgrade", "https://fgauth.ucket.top", "http://fgauth.ucket.top/auth", false},
 		{"IPv6 downgrade", "https://fgauth.ucket.top", "http://fgauth.ipv6.ucket.top:8888/auth", false},
 		{"userinfo", "https://fgauth.ucket.top", "https://user:password@fgauth.ipv6.ucket.top:8888/auth", false},
@@ -103,14 +94,14 @@ type authRoundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f authRoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func TestAuthRedirectPreservesPostWithoutLeakingToUntrustedHost(t *testing.T) {
+func TestAuthRedirectPreservesPostAndRejectsPlaintextHop(t *testing.T) {
 	for _, allowed := range []bool{true, false} {
-		t.Run(map[bool]string{true: "known IPv6", false: "untrusted host"}[allowed], func(t *testing.T) {
+		t.Run(map[bool]string{true: "custom HTTPS provider", false: "HTTP downgrade"}[allowed], func(t *testing.T) {
 			calls := 0
-			client := newAuthHTTP("https://fgauth.ucket.top")
-			target := "https://fgauth.ipv6.ucket.top:8888/api/phoenix/tan_lobby_create"
+			client := newAuthHTTP("https://auth.example")
+			target := "https://routing.provider.example:9443/api/phoenix/tan_lobby_create"
 			if !allowed {
-				target = "https://attacker.example/auth"
+				target = "http://routing.provider.example:9443/auth"
 			}
 			client.Transport = authRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 				calls++
@@ -122,12 +113,12 @@ func TestAuthRedirectPreservesPostWithoutLeakingToUntrustedHost(t *testing.T) {
 				if calls == 1 {
 					return &http.Response{StatusCode: http.StatusTemporaryRedirect, Header: http.Header{"Location": {target}}, Body: io.NopCloser(strings.NewReader("")), Request: r}, nil
 				}
-				if !allowed || r.URL.Host != "fgauth.ipv6.ucket.top:8888" {
+				if !allowed || r.URL.Host != "routing.provider.example:9443" {
 					t.Fatal("token sent to unexpected host")
 				}
 				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"ok":true}`)), Request: r}, nil
 			})
-			request, _ := http.NewRequest(http.MethodPost, "https://fgauth.ucket.top/api/phoenix/tan_lobby_create", strings.NewReader(`{"login_token":"test-only-token"}`))
+			request, _ := http.NewRequest(http.MethodPost, "https://auth.example/api/phoenix/tan_lobby_create", strings.NewReader(`{"login_token":"test-only-token"}`))
 			response, err := client.Do(request)
 			if response != nil {
 				_ = response.Body.Close()
@@ -138,7 +129,7 @@ func TestAuthRedirectPreservesPostWithoutLeakingToUntrustedHost(t *testing.T) {
 		})
 	}
 	root, _ := url.Parse("https://fgauth.ucket.top")
-	if trustedAuthRedirect(root, nil) || trustedAuthRedirect(nil, root) {
+	if allowedAuthRedirect(root, nil) || allowedAuthRedirect(nil, root) {
 		t.Fatal("invalid endpoint accepted")
 	}
 }

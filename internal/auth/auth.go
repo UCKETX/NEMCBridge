@@ -29,49 +29,28 @@ func newAuthHTTP(base string) *http.Client {
 		if len(via) >= 4 {
 			return fmt.Errorf("验证站重定向过多")
 		}
-		if !trustedAuthRedirect(root, req.URL) {
-			return fmt.Errorf("验证站重定向目标不受信任，未发送令牌")
+		if !allowedAuthRedirect(root, req.URL) {
+			return fmt.Errorf("验证站重定向地址无效或使用了不安全的协议，未发送令牌")
 		}
 		return nil
 	}}
 }
 
-func authAuthority(endpoint *url.URL) string {
-	port := endpoint.Port()
-	if port == "" {
-		if endpoint.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-	return net.JoinHostPort(strings.ToLower(endpoint.Hostname()), port)
-}
-
-func trustedAuthRedirect(root, target *url.URL) bool {
-	if root == nil || target == nil || root.User != nil || target.User != nil {
+func allowedAuthRedirect(root, target *url.URL) bool {
+	if root == nil || target == nil || root.User != nil || target.User != nil || target.Hostname() == "" {
 		return false
 	}
-	if target.Scheme != "https" && target.Scheme != "http" {
-		return false
-	}
-	if root.Scheme == "https" && target.Scheme != "https" {
-		return false
-	}
-	source, destination := authAuthority(root), authAuthority(target)
-	if source == destination {
+	// The user selects the authentication service; that service may route to
+	// other HTTPS domains or ports. No provider-specific allowlist is required.
+	if target.Scheme == "https" {
 		return true
 	}
-	// FGAuth's primary endpoint routes requests to its explicit IPv4/IPv6
-	// HTTPS endpoints. Do not extend trust to other subdomains or ports.
-	knownFGAuth := func(authority string) bool {
-		switch authority {
-		case "fgauth.ucket.top:443", "fgauth.ipv4.ucket.top:9380", "fgauth.ipv6.ucket.top:8888":
-			return true
-		}
-		return false
+	loopback := func(host string) bool {
+		ip := net.ParseIP(host)
+		return strings.EqualFold(host, "localhost") || ip != nil && ip.IsLoopback()
 	}
-	return root.Scheme == "https" && target.Scheme == "https" && knownFGAuth(source) && knownFGAuth(destination)
+	// Preserve local HTTP development without allowing a remote plaintext hop.
+	return root.Scheme == "http" && target.Scheme == "http" && loopback(root.Hostname()) && loopback(target.Hostname())
 }
 
 func FetchCreate(ctx context.Context, cfg config.Config, token string) (CreateInfo, error) {
