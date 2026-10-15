@@ -14,8 +14,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/UCKETX/NEMCBridge/actions/workflows/release.yml"><img src="https://img.shields.io/badge/Actions-%E6%9F%A5%E7%9C%8B%E6%9E%84%E5%BB%BA-2088ff?logo=githubactions&logoColor=white" alt="查看 Actions 构建"></a>
-  <a href="https://github.com/UCKETX/NEMCBridge/releases/latest"><img src="https://img.shields.io/badge/Release-%E4%B8%8B%E8%BD%BD%E7%89%88%E6%9C%AC-8b5cf6?logo=github&logoColor=white" alt="下载发布版本"></a>
+  <a href="https://github.com/UCKETX/NEMCBridge/actions/workflows/release.yml"><img src="https://github.com/UCKETX/NEMCBridge/actions/workflows/release.yml/badge.svg" alt="构建与发布状态"></a>
+  <a href="https://github.com/UCKETX/NEMCBridge/releases/latest"><img src="https://img.shields.io/github/v/release/UCKETX/NEMCBridge?color=8b5cf6" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/original_code-MIT-22c55e" alt="原创代码采用 MIT 许可证"></a>
 </p>
 
