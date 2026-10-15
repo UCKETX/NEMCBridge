@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NEMCBridge · 让网易版与国际版玩家在同一个世界相遇</title>
+  <meta name="description" content="NEMCBridge 让房主机器人常驻网易《我的世界》本地联机房间，把玩家接入你自己的 Bedrock 服务器，网易版与国际版玩家同服游玩。">
+  <meta name="theme-color" content="#0b0914">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="NEMCBridge">
+  <meta property="og:description" content="让网易版与国际版 Bedrock 玩家，在同一个世界相遇。">
+  <meta property="og:image" content="https://ucketx.github.io/NEMCBridge/assets/og.jpg">
+  <meta property="og:url" content="https://ucketx.github.io/NEMCBridge/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preload" as="image" href="assets/banner.webp" type="image/webp">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add("js")</script>
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳到正文</a>
+
+  <header class="nav" id="top">
+    <div class="nav-inner">
+      <a class="brand" href="index.html" aria-label="NEMCBridge 首页">
+        <img src="assets/favicon.svg" alt="" width="28" height="28">
+        <span>NEMC<b>Bridge</b></span>
+      </a>
+      <nav class="nav-links" id="nav-links" aria-label="主导航">
+        <a href="index.html" aria-current="page">首页</a>
+        <a href="docs.html">文档</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="icon-link" href="https://github.com/UCKETX/NEMCBridge" aria-label="GitHub 仓库" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span class="stars" data-stars hidden></span>
+        </a>
+        <a class="btn btn-sm btn-primary" href="docs.html#download">下载</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <canvas class="embers" aria-hidden="true"></canvas>
+      <div class="hero-sky" aria-hidden="true"></div>
+      <div class="wrap hero-inner">
+        <a class="release-pill" href="https://github.com/UCKETX/NEMCBridge/releases/latest" target="_blank" rel="noopener" data-reveal>
+          <span class="pill-tag">NEW</span>
+          <span data-release-label>v0.1.4 已发布 · 修复成员权限与账号存档隔离</span>
+          <span aria-hidden="true">→</span>
+        </a>
+        <h1 data-reveal>
+          让网易版与国际版玩家<br>
+          在<span class="portal-text">同一个世界</span>相遇
+        </h1>
+        <p class="lead" data-reveal>
+          房主机器人常驻网易「本地联机」房间，把玩家接入你自己的 Bedrock 服务器。<br>
+          网易版搜房间号加入，国际版直连服务器。
+        </p>
+        <div class="hero-cta" data-reveal>
+          <a class="btn btn-primary btn-lg" href="docs.html#download" data-os-download>
+            <span class="btn-icon" aria-hidden="true">⬇</span>
+            <span><span data-os-label>下载最新版</span><small data-version-label>v0.1.4 · 免安装单文件</small></span>
+          </a>
+          <a class="btn btn-ghost btn-lg" href="docs.html#start">
+            <span>五分钟部署</span><span aria-hidden="true">→</span>
+          </a>
+        </div>
+        <ul class="hero-meta" data-reveal>
+          <li>Windows · Linux · macOS</li>
+          <li>amd64 / arm64</li>
+          <li>MIT 开源</li>
+        </ul>
+
+        <figure class="showcase" data-reveal data-tilt>
+          <div class="showcase-glow" aria-hidden="true"></div>
+          <picture>
+            <source srcset="assets/banner.webp" type="image/webp">
+            <img src="assets/banner-1200.jpg" width="2000" height="667" alt="插画：紫色下界传送门连接两片方块世界，左侧是竹林与中式楼阁，右侧是草地与山脉，两名方块玩家隔门相迎">
+          </picture>
+          <figcaption>
+            <span><i class="dot dot-green"></i>房间在线</span>
+            <span>网易版 ⇄ Bedrock 1.21.124</span>
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="stats wrap" aria-label="项目概览">
+      <div class="stat" data-reveal><strong><span data-count="2">2</span><em>端</em></strong><span>网易版与国际版<br>同服互通</span></div>
+      <div class="stat" data-reveal><strong><span data-count="9">9</span><em>人</em></strong><span>每个网易房间<br>最多接入</span></div>
+      <div class="stat" data-reveal><strong><span data-count="6">6</span><em>个</em></strong><span>平台架构<br>发布包</span></div>
+      <div class="stat" data-reveal><strong><span data-count="0">0</span><em>依赖</em></strong><span>单个可执行文件<br>解压即用</span></div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <span class="kicker">01 · HOW IT WORKS</span>
+          <h2>一座桥，连接两套协议</h2>
+          <p>网易玩家走 WebRTC 进入本地联机房间，NEMCBridge 在中间完成身份映射与协议转换，再通过 RakNet 接入同一台 BDS。国际版玩家照常直连，不经过桥。</p>
+        </div>
+
+        <div class="flow" data-reveal>
+          <div class="node node-ne">
+            <i class="px-icon" data-icon="player-a"></i>
+            <b>网易版玩家</b><small>「本地联机」<br>搜索房间号</small>
+          </div>
+          <div class="link" data-proto="加入"><i></i><i></i><i></i></div>
+          <div class="node">
+            <i class="px-icon" data-icon="room"></i>
+            <b>本地联机房间</b><small>机器人常驻<br>掉线自动重开</small>
+          </div>
+          <div class="link" data-proto="WebRTC"><i></i><i></i><i></i></div>
+          <div class="core">
+            <div class="auth-tag"><b>FGAuth</b> 房主鉴权</div>
+            <div class="core-portal" aria-hidden="true"><span></span></div>
+            <b>NEMCBridge</b>
+            <ul>
+              <li>协议转换</li>
+              <li>账号身份映射</li>
+              <li>皮肤 · 聊天同步</li>
+              <li>大消息分片重组</li>
+            </ul>
+          </div>
+          <div class="link" data-proto="RakNet"><i></i><i></i><i></i></div>
+          <div class="node node-bds">
+            <i class="px-icon" data-icon="grass"></i>
+            <b>Bedrock 服务器</b><small>你的 BDS<br>同一个世界</small>
+          </div>
+          <div class="link link-rev" data-proto="UDP 直连"><i></i><i></i><i></i></div>
+          <div class="node node-intl">
+            <i class="px-icon" data-icon="player-b"></i>
+            <b>国际版玩家</b><small>服务器地址<br>+ UDP 端口</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <span class="kicker">02 · FEATURES</span>
+          <h2>开好房，就交给它</h2>
+          <p>从方块交互到好友申请，房主需要守在电脑前做的事，NEMCBridge 都替你做了。</p>
+        </div>
+
+        <div class="bento">
+          <article class="card card-play" data-reveal>
+            <i class="px-icon" data-icon="grass"></i>
+            <h3>真正的共同游玩</h3>
+            <p>区块加载、破坏与放置方块、双向文字聊天、玩家皮肤互显。网易玩家按账号拥有独立存档，改名重进也不丢背包。</p>
+            <div class="chat" aria-label="聊天示例">
+              <div class="msg msg-l"><span class="tag tag-ne">网易</span><b>竹林小筑</b>今晚一起去下界吗？</div>
+              <div class="msg msg-r"><span class="tag tag-intl">国际版</span><b>Steve</b>Sure! I'll bring the obsidian ⛏️</div>
+              <div class="msg msg-l"><span class="tag tag-ne">网易</span><b>竹林小筑</b>传送门见 👋</div>
+            </div>
+            <ul class="chips">
+              <li>区块加载</li><li>方块交互</li><li>双向聊天</li><li>皮肤互显</li><li>命令转发</li><li>独立存档</li>
+            </ul>
+          </article>
+
+          <article class="card card-console" data-reveal>
+            <i class="px-icon" data-icon="monitor"></i>
+            <h3>网页控制台</h3>
+            <p>带管理员登录的 Web 控制台：配置验证服务器、令牌、后端和房间参数，查看状态与运行日志。</p>
+            <div class="mock-console" aria-hidden="true">
+              <div class="mc-bar"><i></i><i></i><i></i><span>127.0.0.1:18321</span></div>
+              <div class="mc-body">
+                <div class="mc-hero">
+                  <div>
+                    <small>本地联机房间号</small>
+                    <strong class="mc-room" data-room>482071</strong>
+                  </div>
+                  <span class="mc-btn">复制房间号</span>
+                </div>
+                <div class="mc-stats">
+                  <div><small>本地服务器</small><b>在线</b></div>
+                  <div><small>在线玩家</small><b data-players>4</b></div>
+                  <div><small>在线时间</small><b data-uptime>3:12:45</b></div>
+                </div>
+                <div class="mc-log" data-log>
+                  <p><time>21:04:12</time>竹林小筑 加入了游戏</p>
+                  <p><time>21:04:30</time>&lt;Steve&gt; welcome!</p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card" data-reveal>
+            <i class="px-icon" data-icon="lantern"></i>
+            <h3>房主常驻</h3>
+            <p>机器人保持房间连接，掉线后按设定间隔（5–300 秒）自动重新开房。</p>
+            <div class="uptime-bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="warn"></i><i class="ok"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </article>
+
+          <article class="card" data-reveal>
+            <i class="px-icon" data-icon="friends"></i>
+            <h3>自动加好友</h3>
+            <p>房间在线时每 30 秒检查并同意待处理的好友申请，失败独立退避，不影响房间。</p>
+          </article>
+
+          <article class="card card-term" data-reveal>
+            <i class="px-icon" data-icon="terminal"></i>
+            <h3>终端启动界面</h3>
+            <p>蓝青色块字横幅，开机即显示版本、访问地址与首次登录信息。</p>
+            <pre class="term" aria-label="终端启动横幅示例" data-term></pre>
+          </article>
+
+          <article class="card" data-reveal>
+            <i class="px-icon" data-icon="diamond"></i>
+            <h3>跨平台部署</h3>
+            <p>Go 静态编译，Windows、Linux、macOS 各有 amd64 与 arm64 发布包，附 SHA256 校验。</p>
+            <div class="os-grid" aria-hidden="true">
+              <span>win/amd64</span><span>win/arm64</span><span>linux/amd64</span><span>linux/arm64</span><span>mac/amd64</span><span>mac/arm64</span>
+            </div>
+          </article>
+
+          <article class="card" data-reveal>
+            <i class="px-icon" data-icon="lock"></i>
+            <h3>凭据本地加密</h3>
+            <p>令牌独立存放：Windows 用 DPAPI 加密，Linux/macOS 以 <code>0600</code> 权限保存；管理密码 bcrypt 哈希。</p>
+            <ul class="chips">
+              <li>DPAPI</li><li>chmod 0600</li><li>bcrypt</li><li>12h 会话</li><li>登录限速</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-grid">
+      <div>
+        <a class="brand" href="index.html"><img src="assets/favicon.svg" alt="" width="24" height="24"><span>NEMC<b>Bridge</b></span></a>
+        <p>让网易版与国际版 Bedrock 玩家，在同一个世界相遇。</p>
+      </div>
+      <div>
+        <h4>文档</h4>
+        <a href="docs.html#start">快速开始</a>
+        <a href="docs.html#compat">兼容性</a>
+        <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/setup.md" target="_blank" rel="noopener">完整部署指南</a>
+        <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/protocol.md" target="_blank" rel="noopener">协议说明</a>
+      </div>
+      <div>
+        <h4>社区</h4>
+        <a href="https://github.com/UCKETX/NEMCBridge/issues" target="_blank" rel="noopener">问题反馈</a>
+        <a href="https://github.com/UCKETX/NEMCBridge/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">参与开发</a>
+        <a href="https://github.com/UCKETX/NEMCBridge/blob/main/SECURITY.md" target="_blank" rel="noopener">安全反馈</a>
+      </div>
+      <div>
+        <h4>致谢</h4>
+        <a href="https://github.com/Happy2018new/nemc-tan-lobby-solver" target="_blank" rel="noopener">nemc-tan-lobby-solver</a>
+        <a href="https://github.com/Sandertv/gophertunnel" target="_blank" rel="noopener">gophertunnel</a>
+        <a href="https://github.com/pion" target="_blank" rel="noopener">Pion</a>
+        <a href="https://github.com/UCKETX/neomega-admin" target="_blank" rel="noopener">neomega-admin</a>
+      </div>
+    </div>
+    <div class="wrap footer-legal">
+      <p>原创代码与文档采用 <a href="https://github.com/UCKETX/NEMCBridge/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>；<code>vendor-src/</code> 中的第三方代码见 <a href="https://github.com/UCKETX/NEMCBridge/blob/main/THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">THIRD_PARTY_NOTICES</a>。</p>
+      <p>本项目为独立社区工具，与 Mojang、Microsoft 或网易无隶属、赞助或官方合作关系。Minecraft 及相关商标归各自权利人所有。页面插画为原创生成图，非游戏实机截图。</p>
+    </div>
+  </footer>
+</body>
+</html>

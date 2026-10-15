@@ -7,6 +7,7 @@
 <p align="center">让网易版与国际版 Bedrock 玩家，在同一个世界相遇。</p>
 
 <p align="center">
+  <a href="https://ucketx.github.io/NEMCBridge/">项目官网</a> ·
   <a href="https://github.com/UCKETX/NEMCBridge/releases/latest">下载版本</a> ·
   <a href="docs/setup.md">部署指南</a> ·
   <a href="docs/compatibility.md">兼容范围</a> ·
@@ -118,6 +119,7 @@ internal/app/  控制台、房间管理和运行日志
 internal/webui/ 嵌入可执行文件的 Web 控制台
 internal/      鉴权、房间、转发、协议转换和数据存储等模块
 scripts/       构建、打包及本地测试工具
+site/          项目官网（GitHub Pages）
 vendor-src/    保留本地修改的上游协议模块
 ```
 
