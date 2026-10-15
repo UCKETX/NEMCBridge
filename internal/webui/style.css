@@ -66,7 +66,7 @@ button.primary {
 button.primary:hover:not(:disabled) { filter: brightness(1.12) saturate(1.1); background: linear-gradient(180deg, #bb86ff 0%, #9346f5 55%, #7c2fe6 100%); }
 button.ghost:hover:not(:disabled) { border-color: rgba(216, 180, 254, .4); }
 button.danger:hover:not(:disabled) { border-color: rgba(251, 113, 133, .55); background: rgba(251, 113, 133, .12); color: #ffe4e6; }
-.btn-glyph { font-size: 11px; }
+.btn-glyph { flex: none; filter: drop-shadow(0 1px 0 rgba(50, 0, 100, .5)); }
 
 /* ---------- Top bar ---------- */
 .topbar { position: sticky; top: 0; z-index: 10; background: rgba(11, 9, 20, .72); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); border-bottom: 1px solid var(--line); }

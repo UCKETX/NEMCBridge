@@ -84,7 +84,7 @@
     }
     lines.push(`<span class="t-b">╚${"═".repeat(width)}╝</span>`);
     lines.push(`  <span class="t-name">NEMCBridge</span> ${esc(version)}  <span class="t-dim">·  windows/amd64</span>`);
-    lines.push(`  网易版 ↔ 国际版 Bedrock · 在同一个世界相遇`, "");
+    lines.push(`  网易版 ↔︎ 国际版 Bedrock · 在同一个世界相遇`, "");
     lines.push(`<span class="t-dim">NEMCBridge 控制台监听：0.0.0.0:18321</span>`);
     lines.push(`本机访问：http://127.0.0.1:18321/`);
     lines.push(`局域网访问：http://192.168.1.20:18321/`);
