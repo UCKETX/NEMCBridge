@@ -29,12 +29,49 @@ func newAuthHTTP(base string) *http.Client {
 		if len(via) >= 4 {
 			return fmt.Errorf("验证站重定向过多")
 		}
-		allowed := req.URL.Host == root.Host || (root.Host == "fgauth.ucket.top" && req.URL.Host == "fgauth.ipv4.ucket.top:9380")
-		if !allowed || (root.Scheme == "https" && req.URL.Scheme != "https") {
+		if !trustedAuthRedirect(root, req.URL) {
 			return fmt.Errorf("验证站重定向目标不受信任，未发送令牌")
 		}
 		return nil
 	}}
+}
+
+func authAuthority(endpoint *url.URL) string {
+	port := endpoint.Port()
+	if port == "" {
+		if endpoint.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return net.JoinHostPort(strings.ToLower(endpoint.Hostname()), port)
+}
+
+func trustedAuthRedirect(root, target *url.URL) bool {
+	if root == nil || target == nil || root.User != nil || target.User != nil {
+		return false
+	}
+	if target.Scheme != "https" && target.Scheme != "http" {
+		return false
+	}
+	if root.Scheme == "https" && target.Scheme != "https" {
+		return false
+	}
+	source, destination := authAuthority(root), authAuthority(target)
+	if source == destination {
+		return true
+	}
+	// FGAuth's primary endpoint routes requests to its explicit IPv4/IPv6
+	// HTTPS endpoints. Do not extend trust to other subdomains or ports.
+	knownFGAuth := func(authority string) bool {
+		switch authority {
+		case "fgauth.ucket.top:443", "fgauth.ipv4.ucket.top:9380", "fgauth.ipv6.ucket.top:8888":
+			return true
+		}
+		return false
+	}
+	return root.Scheme == "https" && target.Scheme == "https" && knownFGAuth(source) && knownFGAuth(destination)
 }
 
 func FetchCreate(ctx context.Context, cfg config.Config, token string) (CreateInfo, error) {

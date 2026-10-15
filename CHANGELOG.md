@@ -2,6 +2,11 @@
 
 详细发行说明见 [Releases](https://github.com/UCKETX/NEMCBridge/releases)。
 
+## v0.1.2 — 2026-10-15
+
+- 修复 FGAuth 主域名、IPv4 和 IPv6 入口之间的 HTTPS 分流跳转。
+- 保留对陌生域名、异常端口及 HTTPS 降级的拦截。
+
 ## v0.1.1 — 2026-10-15
 
 - 添加蓝青渐变终端横幅，显示版本、平台和访问地址；支持 `NO_COLOR` 关闭颜色。
