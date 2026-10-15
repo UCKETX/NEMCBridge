@@ -24,9 +24,18 @@ def modules():
     return result
 
 
-def copy_licenses(root, target):
+def write_third_party_notices(root, target):
     records = []
-    for item in modules():
+    texts = {}
+
+    def add_notice(path, label):
+        raw = path.read_bytes()
+        digest = hashlib.sha256(raw).hexdigest()
+        if digest not in texts:
+            texts[digest] = {"raw": raw, "sources": []}
+        texts[digest]["sources"].append(label)
+
+    for item in sorted(modules(), key=lambda module: module["Path"]):
         if item.get("Main"):
             continue
         replacement = item.get("Replace", {})
@@ -35,21 +44,29 @@ def copy_licenses(root, target):
         if not directory:
             raise RuntimeError(f"Missing downloaded dependency: {item['Path']}")
         source = Path(directory)
-        destination = target / item["Path"]
         # The vendored replacement includes several projects' licenses.
         candidates = source.rglob("*") if replacement else source.iterdir()
-        for path in candidates:
+        for path in sorted(candidates):
             if path.is_file() and re.match(r"^(LICENSE|COPYING|NOTICE|PATENTS)([.\-_]|$)", path.name, re.I):
-                output = destination / path.relative_to(source)
-                output.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(path, output)
+                add_notice(path, f"{item['Path']} {item.get('Version', '(local)')} / {path.relative_to(source).as_posix()}")
     goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], encoding="utf-8").strip())
     for name in ("LICENSE", "PATENTS"):
         if (goroot / name).is_file():
-            output = target / "go" / name
-            output.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(goroot / name, output)
-    (target.parent / "dependencies.txt").write_text("\n".join(sorted(records)) + "\n", encoding="utf-8")
+            add_notice(goroot / name, f"Go toolchain / {name}")
+    # Keep every original notice intact, with identical texts included once and
+    # attributed to all relevant modules. The archive needs just one notice file.
+    with target.open("wb") as output:
+        output.write((root / "THIRD_PARTY_NOTICES.md").read_bytes())
+        output.write(b"\n\n## Dependency versions\n\n```text\n")
+        output.write(("\n".join(records) + "\n").encode("utf-8"))
+        output.write(b"```\n\n## Full third-party license and notice texts\n")
+        for number, entry in enumerate(texts.values(), 1):
+            output.write(f"\n### Notice {number}\n\n".encode("utf-8"))
+            for label in entry["sources"]:
+                output.write(f"- `{label}`\n".encode("utf-8"))
+            raw = entry["raw"]
+            fence = b"`" * max(4, max((len(match) + 1 for match in re.findall(rb"`+", raw)), default=4))
+            output.write(b"\n" + fence + b"text\n" + raw + b"\n" + fence + b"\n")
 
 
 def main():
@@ -83,7 +100,6 @@ def main():
         for source, destination in (
             ("docs/RELEASE_README.md", "README.md"),
             ("config.example.json", "config.example.json"),
-            ("THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md"),
             ("LICENSE", "LICENSE"),
             ("docs/protocol.md", "docs/protocol.md"),
             ("docs/setup.md", "docs/setup.md"),
@@ -104,7 +120,7 @@ def main():
                 (package / destination).write_text(text, encoding="utf-8")
             else:
                 shutil.copyfile(root / source, package / destination)
-        copy_licenses(root, package / "licenses")
+        write_third_party_notices(root, package / "THIRD_PARTY_NOTICES.md")
         if args.os == "windows":
             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as target:
                 for path in sorted(package.rglob("*")):

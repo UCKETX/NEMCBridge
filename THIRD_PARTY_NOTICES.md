@@ -21,9 +21,9 @@ WebRTC 上游测试含用于 PEM/证书解析测试的固定测试密钥；它�
 
 ## Go 依赖及发布包
 
-依赖版本由 `go.mod` / `go.sum` 固定，包括 gophertunnel、go-raknet、Pion 系列及其他模块。发布打包脚本复制依赖的 LICENSE、COPYING、NOTICE、PATENTS 及 Go 工具链许可，并生成 `dependencies.txt`。依赖作者、完整条款及附加声明以保留的原始文件为准。
+依赖版本由 `go.mod` / `go.sum` 固定，包括 gophertunnel、go-raknet、Pion 系列及其他模块。发布打包脚本将依赖的 LICENSE、COPYING、NOTICE、PATENTS 及 Go 工具链许可原文合并进发布包的 `THIRD_PARTY_NOTICES.md`，并在同一文件中列出模块版本。完全相同的文本只保留一份，并列出全部来源。依赖作者、完整条款及附加声明以合并保留的原文为准。
 
-发布包包含本项目 LICENSE 和本文；复制到发布包中的依赖许可证同样不补足上述上游模块缺失的整体许可。
+发布包包含本项目 LICENSE 和本文；合并到发布包中的依赖许可证同样不补足上述上游模块缺失的整体许可。
 
 ## 协议参考与游戏资源
 
