@@ -62,8 +62,6 @@ block-network-ids-are-hashes=true
 | Linux | `linux_*.tar.gz` | x86 服务器选 `amd64`，ARM 服务器选 `arm64` |
 | macOS | `macos_*.tar.gz` | Apple Silicon 选 `arm64`，Intel 选 `amd64` |
 
-项目已由 LobbyKeeper 更名为 NEMCBridge；v0.1.2 及更早的发布包仍使用 `LobbyKeeper` 文件名，下列命令适用于新版或源码构建。
-
 Windows 解压后双击 `NEMCBridge.exe`。Linux/macOS 在解压目录执行：
 
 ```sh
@@ -71,7 +69,7 @@ chmod +x NEMCBridge
 ./NEMCBridge -data-dir ./data
 ```
 
-打开 **http://127.0.0.1:18321/**，填写 [FGAuth 验证服务器](https://fgauth.ucket.top)、自己的机器人令牌和后端地址，保存并点击「开房」。后端在同一台机器时，默认地址为 `127.0.0.1:19132`。
+打开 [http://127.0.0.1:18321/](http://127.0.0.1:18321/)，填写 [FGAuth 验证服务器](https://fgauth.ucket.top)、自己的机器人令牌和后端地址，保存并点击「开房」。后端在同一台机器时，默认地址为 `127.0.0.1:19132`。
 
 ### 3. 一起加入
 
