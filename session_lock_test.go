@@ -110,7 +110,7 @@ func TestManagerReleasesSessionAfterStop(t *testing.T) {
 	lease.Close()
 }
 
-func TestLegacyConsoleBlocksDiagnosticBeforeAuth(t *testing.T) {
+func TestLegacyConsoleBlocksCheckBeforeAuth(t *testing.T) {
 	for _, running := range []bool{false, true} {
 		t.Run(strconv.FormatBool(running), func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

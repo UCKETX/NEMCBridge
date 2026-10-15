@@ -21,3 +21,7 @@
 *.p12
 __pycache__/
 *.pyc
+
+# Upstream demo applications are not part of the game relay.
+/vendor-src/nemc-tan-lobby-solver/core/sctp/examples/
+/vendor-src/nemc-tan-lobby-solver/core/webrtc/examples/

@@ -6,7 +6,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw '自动测试失败' }
     go test github.com/Happy2018new/nemc-tan-lobby-solver/core/sctp -run 'TestChecksumWireCompatibility|TestPacketUnmarshal|TestPacketMarshal'
     if ($LASTEXITCODE -ne 0) { throw 'SCTP 校验格式测试失败' }
-    go build -trimpath -o LobbyKeeper-build.exe .
+    go build -trimpath -o LobbyKeeper.exe .
     if ($LASTEXITCODE -ne 0) { throw '构建失败' }
-    Write-Output '构建成功：LobbyKeeper-build.exe。请先正常关闭运行中的挂服机，再更新启动脚本使用的程序。'
+    Write-Output '构建成功：LobbyKeeper.exe。启动脚本会使用此程序；若文件正在运行，请先正常关闭挂服机再构建。'
 } finally { Pop-Location }
