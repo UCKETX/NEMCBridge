@@ -72,6 +72,11 @@ func RejectRunningRoom(ctx context.Context, port int) error {
 		return nil // No legacy console; the OS session lock is authoritative.
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		// Authenticated consoles belong to builds that hold the OS account lock.
+		// Acquire already protects this check; only legacy public status needs probing.
+		return nil
+	}
 	var state struct {
 		Running bool `json:"running"`
 	}

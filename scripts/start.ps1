@@ -2,6 +2,12 @@
 $taskUrl = 'http://127.0.0.1:18323/'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 try {
+    $null = Invoke-WebRequest -Uri ($taskUrl + 'login') -UseBasicParsing -TimeoutSec 2
+    Start-Process $taskUrl
+    Write-Output 'NEMCBridge 已运行，请登录管理页面查看房间。'
+    exit
+} catch { }
+try {
     $taskStatus = Invoke-RestMethod -Uri ($taskUrl + 'api/status') -TimeoutSec 2
     Start-Process $taskUrl
     Write-Output ('挂服机已运行，房间号：' + $taskStatus.room_id)
@@ -15,5 +21,4 @@ if ($taskBds.Count -eq 0) {
 $taskExe = @('NEMCBridge.exe', 'LobbyKeeper.exe') | ForEach-Object { Join-Path $taskRoot $_ } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $taskExe) { throw '未找到程序，请先运行 scripts/build.ps1 或下载 Windows 发布版。' }
 $taskData = Join-Path $taskRoot 'current'
-Start-Process -FilePath $taskExe -ArgumentList @('-data-dir', ('"' + $taskData + '"'), '-web-port', '18323') -WorkingDirectory $taskRoot -WindowStyle Hidden
-Write-Output '挂服机已启动，控制台：http://127.0.0.1:18323/'
+& $taskExe -data-dir $taskData -web-port 18323

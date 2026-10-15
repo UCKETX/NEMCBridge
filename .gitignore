@@ -12,6 +12,7 @@
 /build/
 /.release-staging/
 **/secrets.dat
+**/admin.json
 **/.keeper-*
 .env
 .env.*

@@ -8,7 +8,7 @@
 
 1. 先运行自己的 Bedrock 服务器，默认目标为 `127.0.0.1:19132`。设置 `online-mode=false`、`compression-algorithm=zlib`（Flate 压缩）、`block-network-ids-are-hashes=true`。
 2. Windows 双击 `NEMCBridge.exe`；Linux/macOS 在解压目录运行 `./NEMCBridge -data-dir ./data`。Linux/macOS 若权限未保留，先执行 `chmod +x NEMCBridge`。
-3. 在浏览器打开 `http://127.0.0.1:18321/`，设置 FGAuth 验证服务器、自己的机器人令牌及目标服务器，保存后点击“开房”。
+3. 在浏览器打开 `http://127.0.0.1:18321/`，使用账号 `admin` 和首次启动终端显示的随机密码登录，再设置 FGAuth 验证服务器、自己的机器人令牌及目标服务器，保存后点击“开房”。
 4. 按控制台显示的房间号加入网易“本地联机”。勾选“程序启动时自动开房”后，下次启动会自动开房；重连可能改变房间号。
 
 Windows 的令牌使用当前用户 DPAPI 加密，Linux/macOS 以 0600 文件权限保存。不同平台不能直接复用 Windows 加密文件；在新环境重新配置自己的令牌。
@@ -24,7 +24,7 @@ Windows 的令牌使用当前用户 DPAPI 加密，Linux/macOS 以 0600 文件�
 ./NEMCBridge -headless -data-dir ./data -web-port 18321
 ```
 
-`NEMCBRIDGE_TOKEN` 环境变量可提供令牌，也可以用 `-import-token` 从标准输入导入。控制台默认监听 `0.0.0.0`，启动终端会输出局域网访问地址。网页没有独立登录认证，请通过防火墙限制为可信网络；远程服务器也可通过 SSH 转发访问控制台。Ctrl+C 或 SIGTERM 正常关闭房间和连接；网页也可停止房间。
+`NEMCBRIDGE_TOKEN` 环境变量可提供令牌，也可以用 `-import-token` 从标准输入导入。控制台默认监听 `0.0.0.0`，启动终端会输出局域网访问地址。管理页面需要管理员登录，HTTP 访问仍应通过防火墙限制为可信网络；远程服务器也可通过 SSH 转发访问控制台。Ctrl+C 或 SIGTERM 正常关闭房间和连接；网页也可停止房间。
 
 `config.example.json` 仅包含默认配置。Release 不含凭据、服务器程序、世界或日志。Web 界面已嵌入二进制，无需单独安装。
 
@@ -36,3 +36,5 @@ Windows 的令牌使用当前用户 DPAPI 加密，Linux/macOS 以 0600 文件�
 部署与升级见 [部署指南](setup.md)，支持版本及已知限制见 [兼容性说明](compatibility.md)。后端离线身份不代表 Xbox 认证，远程访问需配置适当的网络和游戏权限。
 
 原创代码与文档采用 [MIT License](../LICENSE)。第三方组件保留原有许可；部分上游模块的整体许可尚待确认，详情见 [第三方声明](../THIRD_PARTY_NOTICES.md)。本项目不代表 Mojang、Microsoft 或网易。
+
+管理密码以哈希形式保存在数据目录的 `admin.json`。可通过 `NEMCBRIDGE_ADMIN_PASSWORD` 设置密码；忘记密码时正常退出程序，再使用原数据目录加 `-reset-admin-password` 参数启动。

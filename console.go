@@ -4,9 +4,63 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 )
+
+func terminalColorEnabled() bool {
+	if _, disabled := os.LookupEnv("NO_COLOR"); disabled || os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	return enableTerminalColor()
+}
+
+func printStartupBanner(w io.Writer, color bool) {
+	font := map[rune][]string{
+		'N': {"10001", "11001", "10101", "10011", "10001"},
+		'E': {"11111", "10000", "11110", "10000", "11111"},
+		'M': {"10001", "11011", "10101", "10001", "10001"},
+		'C': {"01111", "10000", "10000", "10000", "01111"},
+		'B': {"11110", "10001", "11110", "10001", "11110"},
+		'R': {"11110", "10001", "11110", "10100", "10010"},
+		'I': {"11111", "00100", "00100", "00100", "11111"},
+		'D': {"11110", "10001", "10001", "10001", "11110"},
+		'G': {"01111", "10000", "10111", "10001", "01111"},
+	}
+	const title = "NEMCBRIDGE"
+	paint := func(text, code string) string {
+		if color {
+			return "\x1b[" + code + "m" + text + "\x1b[0m"
+		}
+		return text
+	}
+	width := len(title)*6 - 1 + 4
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, paint("╔"+strings.Repeat("═", width)+"╗", "38;2;53;211;220"))
+	for row := 0; row < 5; row++ {
+		fmt.Fprint(w, paint("║  ", "38;2;53;211;220"))
+		for index, letter := range title {
+			pixels := strings.NewReplacer("1", "█", "0", " ").Replace(font[letter][row])
+			code := fmt.Sprintf("38;2;%d;%d;%d", 104-index*6, 155+index*8, 214)
+			fmt.Fprint(w, paint(pixels, code))
+			if index < len(title)-1 {
+				fmt.Fprint(w, " ")
+			}
+		}
+		fmt.Fprintln(w, paint("  ║", "38;2;53;211;220"))
+	}
+	fmt.Fprintln(w, paint("╚"+strings.Repeat("═", width)+"╝", "38;2;53;211;220"))
+	shortCommit := commit
+	if len(shortCommit) > 7 {
+		shortCommit = shortCommit[:7]
+	}
+	fmt.Fprintf(w, "  %s %s  ·  %s  ·  %s/%s\n", paint("NEMCBridge", "1;36"), version, shortCommit, runtime.GOOS, runtime.GOARCH)
+	fmt.Fprintln(w, "  网易版 ↔ 国际版 Bedrock · 在同一个世界相遇")
+	fmt.Fprintln(w)
+}
 
 // Include every active IPv4 interface so LAN and VPN addresses can both be used.
 func consoleIPv4Addresses() []net.IP {

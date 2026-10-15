@@ -42,7 +42,7 @@ func TestConsoleLANAccessAndOrigin(t *testing.T) {
 	cfg := config.Default()
 	cfg.WebPort = listener.Addr().(*net.TCPAddr).Port
 	m := newManager(t.TempDir(), cfg, "", log.New(io.Discard, "", 0))
-	handler := makeHandler(m)
+	handler := makeHandler(m, testConsoleAuth(t))
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: time.Second}
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { _ = server.Close() })
@@ -50,6 +50,18 @@ func TestConsoleLANAccessAndOrigin(t *testing.T) {
 	t.Cleanup(transport.CloseIdleConnections)
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	address := "http://" + net.JoinHostPort(ips[0].String(), strconv.Itoa(cfg.WebPort))
+	login, _ := http.NewRequest(http.MethodPost, address+"/api/login", strings.NewReader(`{"username":"admin","password":"test-admin-password"}`))
+	login.Header.Set("Origin", address)
+	login.Header.Set("Content-Type", "application/json")
+	loginResponse, err := client.Do(login)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = loginResponse.Body.Close()
+	if loginResponse.StatusCode != http.StatusOK || len(loginResponse.Cookies()) != 1 {
+		t.Fatal("LAN login failed")
+	}
+	cookie := loginResponse.Cookies()[0]
 	for _, tc := range []struct {
 		method, path, origin string
 		status               int
@@ -65,6 +77,7 @@ func TestConsoleLANAccessAndOrigin(t *testing.T) {
 		}
 		req.Header.Set("Origin", tc.origin)
 		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(cookie)
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal(err)

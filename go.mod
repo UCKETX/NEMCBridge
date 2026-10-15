@@ -10,6 +10,7 @@ require (
 	github.com/pion/logging v0.2.4
 	github.com/sandertv/go-raknet v1.15.2
 	github.com/sandertv/gophertunnel v1.51.1
+	golang.org/x/crypto v0.39.0
 	golang.org/x/sys v0.36.0
 )
 
@@ -33,7 +34,6 @@ require (
 	github.com/pion/turn/v4 v4.1.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 )
 

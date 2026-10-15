@@ -93,3 +93,13 @@ func TestLegacyConsoleBlocksCheckBeforeAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestAuthenticatedConsoleReliesOnAccountLock(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+	if err := RejectRunningRoom(context.Background(), server.Listener.Addr().(*net.TCPAddr).Port); err != nil {
+		t.Fatal(err)
+	}
+}

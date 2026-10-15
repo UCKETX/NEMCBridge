@@ -47,6 +47,7 @@ func runMain() error {
 	run := flag.Bool("run", false, "启动后自动开房")
 	check := flag.Bool("check", false, "检查本地服务器和真实鉴权，然后退出")
 	importToken := flag.Bool("import-token", false, "从标准输入读取令牌并保存")
+	resetAdmin := flag.Bool("reset-admin-password", false, "重置管理密码并在终端显示新密码")
 	duration := flag.Int("run-seconds", 0, "运行指定秒数后关房退出（测试用）")
 	flag.Parse()
 	if *showVersion {
@@ -135,11 +136,26 @@ func runMain() error {
 	if err != nil {
 		return fmt.Errorf("控制台端口被占用: %w", err)
 	}
-	server := &http.Server{Handler: makeHandler(manager), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 45 * time.Second}
+	defer listener.Close()
+	admin, initialPassword, err := loadConsoleAuth(dir, os.Getenv("NEMCBRIDGE_ADMIN_PASSWORD"), *resetAdmin)
+	if err != nil {
+		return err
+	}
+	server := &http.Server{Handler: makeHandler(manager, admin), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 45 * time.Second}
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- server.Serve(listener) }()
 	address := fmt.Sprintf("http://127.0.0.1:%d", cfg.WebPort)
+	printStartupBanner(os.Stdout, terminalColorEnabled())
 	printConsoleURLs(os.Stdout, cfg.WebPort, consoleIPv4Addresses())
+	fmt.Println("管理员账号：admin")
+	if initialPassword != "" {
+		fmt.Println("管理员初始密码：", initialPassword)
+		fmt.Println("请保存此密码；后续启动不再显示，可用 -reset-admin-password 重置。")
+	} else if os.Getenv("NEMCBRIDGE_ADMIN_PASSWORD") != "" {
+		fmt.Println("管理密码：由 NEMCBRIDGE_ADMIN_PASSWORD 设置。")
+	} else {
+		fmt.Println("管理密码：已设置，忘记密码可用 -reset-admin-password 重置。")
+	}
 	if !*headless {
 		openBrowser(address)
 	}
@@ -181,12 +197,26 @@ func openBrowser(address string) {
 		_ = exec.Command("xdg-open", address).Start()
 	}
 }
-func makeHandler(m *Manager) http.Handler {
+func makeHandler(m *Manager, admin *consoleAuth) http.Handler {
+	if admin == nil {
+		panic("console authentication is required")
+	}
 	mux := http.NewServeMux()
 	respond := func(w http.ResponseWriter, data any) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		_ = json.NewEncoder(w).Encode(data)
 	}
+	mux.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
+		page, err := webFiles.ReadFile("web/login.html")
+		if err != nil {
+			http.Error(w, "登录页面不可用", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(page)
+	})
+	mux.HandleFunc("POST /api/login", admin.login)
+	mux.HandleFunc("POST /api/logout", admin.logout)
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) { respond(w, m.snapshot()) })
 	mux.HandleFunc("POST /api/start", func(w http.ResponseWriter, r *http.Request) {
 		if err := m.start(); err != nil {
@@ -220,6 +250,7 @@ func makeHandler(m *Manager) http.Handler {
 	assets, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServer(http.FS(assets)))
 	allowedHosts := consoleHosts(m.snapshot().Config.WebPort, consoleIPv4Addresses())
+	protected := admin.protect(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !allowedHosts[r.Host] {
 			http.Error(w, "控制台访问地址无效，请使用本机或终端显示的 IP 地址", 403)
@@ -235,6 +266,6 @@ func makeHandler(m *Manager) http.Handler {
 				return
 			}
 		}
-		mux.ServeHTTP(w, r)
+		protected.ServeHTTP(w, r)
 	})
 }
