@@ -102,7 +102,9 @@ func Open(ctx context.Context, cfg config.Config, info auth.CreateInfo, trace fu
 			room.Close()
 		}
 	}()
-	r.control, err = raknet.DialContext(ctx, info.RaknetServerAddress)
+	dialCtx, cancelDial := context.WithTimeout(ctx, 10*time.Second)
+	r.control, err = raknet.DialContext(dialCtx, info.RaknetServerAddress)
+	cancelDial()
 	if err != nil {
 		return nil, fmt.Errorf("房间转发节点连接失败: %w", err)
 	}

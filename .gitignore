@@ -47,9 +47,3 @@ Desktop.ini
 /NEMCBridge_*.zip
 /NEMCBridge_*.tar.gz
 /NEMCBridge_*.sha256
-
-# NEMCBridge source builds and release archives.
-/NEMCBridge
-/NEMCBridge_*.zip
-/NEMCBridge_*.tar.gz
-/NEMCBridge_*.sha256

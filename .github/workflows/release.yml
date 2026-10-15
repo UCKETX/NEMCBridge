@@ -81,11 +81,13 @@ jobs:
             vendor-src/nemc-tan-lobby-solver/go.sum
       - run: go test ./...
       - run: go vet ./...
+      - name: RakNet MTU fallback
+        run: go test github.com/Happy2018new/nemc-tan-lobby-solver/core/raknet -run '^TestMTU' -count=1
       - name: SCTP wire compatibility
         run: go test github.com/Happy2018new/nemc-tan-lobby-solver/core/sctp -run 'TestChecksumWireCompatibility|TestPacketUnmarshal|TestPacketMarshal'
       - name: Build native binary
         shell: bash
-        run: go build -trimpath -o smoke.exe .
+        run: go build -trimpath -o smoke.exe ./cmd/nemcbridge
       - name: Version smoke test
         shell: bash
         run: ./smoke.exe -version
@@ -123,7 +125,7 @@ jobs:
           binary=NEMCBridge
           if [[ "$GOOS" == windows ]]; then binary=NEMCBridge.exe; fi
           mkdir -p build
-          go build -trimpath -ldflags "-s -w -X main.version=$VERSION -X main.commit=$GITHUB_SHA" -o "build/$binary" .
+          go build -trimpath -ldflags "-s -w -X main.version=$VERSION -X main.commit=$GITHUB_SHA" -o "build/$binary" ./cmd/nemcbridge
           echo "binary=build/$binary" >> "$GITHUB_OUTPUT"
       - name: Package executable and documentation
         env:

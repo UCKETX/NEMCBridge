@@ -33,6 +33,10 @@ import (
 // are otherwise opaque and keep their original compression and packet layout.
 type Bridge struct {
 	relay.Stream
+	// Set before starting the relay. Events contain gameplay messages only.
+	OnGameEvent     func(GameEvent)
+	playerName      string
+	playerJoined    bool
 	writeMu         sync.Mutex
 	key             *ecdsa.PrivateKey
 	send, recv      *gameCipher
@@ -46,7 +50,9 @@ type Bridge struct {
 
 func New(server relay.Stream, trace func(string)) (*Bridge, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	return &Bridge{Stream: server, key: key, trace: trace, server: netease.ServerConverter{Trace: trace}}, err
+	b := &Bridge{Stream: server, key: key, trace: trace, server: netease.ServerConverter{Trace: trace}}
+	b.server.Observe = b.observeServerPacket
+	return b, err
 }
 
 func (b *Bridge) Write(p []byte) (int, error) {
@@ -71,6 +77,7 @@ func (b *Bridge) Write(p []byte) (int, error) {
 		netease.TraceResourcePacks(p[1:], true, b.trace)
 	}
 	if b.writes > 2 && len(p) > 1 {
+		b.observeClientEvents(p[1:])
 		converted, err := netease.ConvertClient(p[1:])
 		if err != nil {
 			return 0, err
@@ -121,6 +128,7 @@ func (b *Bridge) ReadPacket() ([]byte, error) {
 			return append([]byte{0xfe}, plain...), nil
 		}
 		if b.reads != 2 {
+			b.observeServerEvents(p[1:])
 			return p, nil
 		}
 		data, err := gamebatch.Decode(p[1:])
@@ -152,6 +160,7 @@ func (b *Bridge) ReadPacket() ([]byte, error) {
 			return p, nil
 		}
 		if len(remaining) > 0 {
+			b.observeServerEvents(append([]byte{0xff}, gamebatch.Join(remaining)...))
 			return append([]byte{0xfe, 0xff}, gamebatch.Join(remaining)...), nil
 		}
 	}
@@ -236,6 +245,7 @@ func (b *Bridge) rewriteLogin(wire []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		b.playerName, _ = identity["displayName"].(string)
 		if b.trace != nil {
 			b.trace("客户端皮肤元数据（不含内容）：" + netease.SkinClaimsSummary(skin))
 		}
@@ -257,7 +267,8 @@ func (b *Bridge) rewriteLogin(wire []byte) ([]byte, error) {
 		}
 		publicRaw, _ := x509.MarshalPKIXPublicKey(&b.key.PublicKey)
 		publicText := base64.StdEncoding.EncodeToString(publicRaw)
-		identity["XUID"] = "" // Local offline identity does not claim Xbox authentication.
+		identity["XUID"] = BackendXUID(identity)
+		netease.RememberBackendXUID(b.skinPlayer, identity["XUID"].(string))
 		now := time.Now().Unix()
 		certificate, err := SignJWT(b.key, map[string]any{"exp": now + 3600, "nbf": now - 60, "extraData": identity, "identityPublicKey": publicText})
 		if err != nil {
@@ -359,7 +370,9 @@ func ParseIdentity(request []byte) (map[string]any, map[string]json.RawMessage, 
 		return nil, nil, err
 	}
 	var identity map[string]any
-	if json.Unmarshal(last["extraData"], &identity) != nil || identity["identity"] == nil || identity["displayName"] == nil {
+	identityReader := json.NewDecoder(bytes.NewReader(last["extraData"]))
+	identityReader.UseNumber()
+	if identityReader.Decode(&identity) != nil || identity["identity"] == nil || identity["displayName"] == nil {
 		return nil, nil, errors.New("玩家证书缺少名称或 UUID")
 	}
 	return identity, skin, nil

@@ -10,11 +10,14 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	neprotocol "github.com/Happy2018new/nemc-tan-lobby-solver/minecraft/protocol"
+	nepacket "github.com/Happy2018new/nemc-tan-lobby-solver/minecraft/protocol/packet"
 	"github.com/google/uuid"
 	bdsraknet "github.com/sandertv/go-raknet"
 	stdprotocol "github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -28,11 +31,19 @@ import (
 )
 
 func makeOfflineTestLogin(t *testing.T, overrides ...map[string]any) []byte {
+	return makeTestLoginWithIdentity(t, nil, overrides...)
+}
+
+func makeTestLoginWithIdentity(t *testing.T, identityFields map[string]any, overrides ...map[string]any) []byte {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	identityID := uuid.NewString()
+	identity := map[string]any{"identity": identityID, "displayName": "KeeperTest" + identityID[:6], "XUID": ""}
+	for key, value := range identityFields {
+		identity[key] = value
+	}
 	publicRaw, _ := x509.MarshalPKIXPublicKey(&key.PublicKey)
-	pub, _ := bridge.SignJWT(key, map[string]any{"extraData": map[string]any{"identity": identityID, "displayName": "KeeperTest" + identityID[:6], "XUID": ""}, "identityPublicKey": base64.StdEncoding.EncodeToString(publicRaw)})
+	pub, _ := bridge.SignJWT(key, map[string]any{"extraData": identity, "identityPublicKey": base64.StdEncoding.EncodeToString(publicRaw)})
 	chain, _ := json.Marshal(map[string]any{"chain": []string{pub}})
 	envelope, _ := json.Marshal(map[string]any{"Certificate": string(chain), "AuthenticationType": 2, "Token": ""})
 	claims := map[string]any{
@@ -79,6 +90,26 @@ func TestWebRTCChatRoundTrip(t *testing.T) {
 }
 
 func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOverrides ...map[string]any) {
+	testBDSIdentityWorldExchange(t, cache, webRTC, chat, nil, skinOverrides...)
+}
+
+func TestBDSNetEaseXUIDWorldExchange(t *testing.T) {
+	testBDSIdentityWorldExchange(t, false, false, true, map[string]any{"netease_uid": "1261597877"})
+}
+
+func testBDSIdentityWorldExchange(t *testing.T, cache, webRTC, chat bool, identity map[string]any, skinOverrides ...map[string]any) {
+	testBDSWorldScenario(t, cache, webRTC, chat, false, identity, skinOverrides...)
+}
+
+func TestBDSCommandRoundTrip(t *testing.T) {
+	testBDSWorldScenario(t, false, false, true, true, map[string]any{"netease_uid": "1261597877"})
+}
+
+func TestWebRTCCommandRoundTrip(t *testing.T) {
+	testBDSWorldScenario(t, false, true, true, true, map[string]any{"netease_uid": "1261597877"})
+}
+
+func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, identity map[string]any, skinOverrides ...map[string]any) {
 	addr := os.Getenv("LOBBYKEEPER_BDS_TEST")
 	if addr == "" {
 		t.Skip("requires local BDS")
@@ -105,7 +136,7 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 	if _, err = stream.ReadPacket(); err != nil {
 		t.Fatal(err)
 	}
-	login := makeOfflineTestLogin(t, skinOverrides...)
+	login := makeTestLoginWithIdentity(t, identity, skinOverrides...)
 	loginPackets, err := gamebatch.Split(login[2:])
 	if err != nil || len(loginPackets) != 1 {
 		t.Fatal("test login batch invalid", err)
@@ -134,11 +165,18 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 	subChunkRequested, terrainProvided := false, false
 	chatSent, chatReceived := false, false
 	chatMessage := "NEMCBridge 中文双向聊天 🌍 " + loginUUID.String()[:8]
+	commandLines := []string{"/help", "/help 1", "/nemcbridge_command_missing", "/help"}
+	commandIndex := 0
+	commandReceived := false
+	commandRequestID := ""
 	var runtimeID uint64
 	seenIDs := map[uint64]bool{}
 	for i := 0; i < 512; i++ {
 		p, err := stream.ReadPacket()
 		if err != nil {
+			if commands && commandIndex > 0 {
+				t.Fatalf("command %q did not complete: %v", commandLines[commandIndex-1], err)
+			}
 			t.Fatal(err)
 		}
 		plain, err := gamebatch.Decode(p[1:])
@@ -151,6 +189,24 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 		}
 		for _, pk := range packets {
 			id, n := binary.Uvarint(pk)
+			if commands && id&0x3ff == stdpacket.IDCommandOutput {
+				// Independently decode BDS output using the NetEase protocol.
+				buffer := bytes.NewBuffer(pk[n:])
+				var output nepacket.CommandOutput
+				output.Marshal(neprotocol.NewReader(buffer, 0, true))
+				if buffer.Len() != 0 {
+					t.Fatal("unread bytes in NetEase command output")
+				}
+				// Vanilla player-origin replies clear RequestID, retaining UUID.
+				matchesRequest := output.CommandOrigin.RequestID == commandRequestID || output.CommandOrigin.RequestID == "" && output.CommandOrigin.UUID == loginUUID
+				if matchesRequest && commandIndex > 0 && !commandReceived {
+					if (commandIndex == 3) != (output.SuccessCount == 0) {
+						t.Fatalf("unexpected result for %q: success=%d", commandLines[commandIndex-1], output.SuccessCount)
+					}
+					commandReceived = true
+					t.Logf("command round trip passed: request=%d success=%d WebRTC=%v", commandIndex, output.SuccessCount, webRTC)
+				}
+			}
 			if os.Getenv("LOBBYKEEPER_TRACE_WORLD_TEST") != "" && !seenIDs[id&0x3ff] {
 				t.Logf("world packet id=%d bytes=%d batch=%d wire=%d cache=%v", id&0x3ff, len(pk), i, len(p), cache)
 			}
@@ -229,6 +285,9 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 				list.Marshal(stdprotocol.NewReader(buffer, 0, true))
 				if list.ActionType == 0 && len(list.Entries) > 0 {
 					for _, entry := range list.Entries {
+						if identity != nil && entry.Username == loginIdentity["displayName"] {
+							t.Logf("BDS account compatibility: player UUID preserved=%v", entry.UUID == loginUUID)
+						}
 						t.Logf("BDS skin: pixels=%dx%d bytes=%d geometryBytes=%d resourcePatchBytes=%d trusted=%v persona=%v", entry.Skin.SkinImageWidth, entry.Skin.SkinImageHeight, len(entry.Skin.SkinData), len(entry.Skin.SkinGeometry), len(entry.Skin.SkinResourcePatch), entry.Skin.Trusted, entry.Skin.PersonaSkin)
 						if os.Getenv("LOBBYKEEPER_TRACE_SKIN_TEST") != "" {
 							var geometry map[string]any
@@ -383,6 +442,23 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 			}
 			if chat && !chatReceived {
 				continue
+			}
+			if commands {
+				if commandIndex < len(commandLines) && (commandIndex == 0 || commandReceived) {
+					commandRequestID = fmt.Sprintf("nemcbridge-command-%d", commandIndex)
+					request := &nepacket.CommandRequest{CommandLine: commandLines[commandIndex], CommandOrigin: neprotocol.CommandOrigin{Origin: neprotocol.CommandOriginPlayer, UUID: loginUUID, RequestID: commandRequestID}, Version: 42, UnLimited: commandIndex%2 == 1}
+					var body bytes.Buffer
+					request.Marshal(neprotocol.NewWriter(&body, 0))
+					wire := append([]byte{byte(stdpacket.IDCommandRequest)}, body.Bytes()...)
+					if _, err := stream.Write(append([]byte{0xfe, 0xff}, gamebatch.Join([][]byte{wire})...)); err != nil {
+						t.Fatal(err)
+					}
+					commandIndex++
+					commandReceived = false
+				}
+				if commandIndex < len(commandLines) || !commandReceived {
+					continue
+				}
 			}
 			t.Logf("real BDS initialization and terrain subchunk delivery passed: cache=%v WebRTC=%v", cache, webRTC)
 			return

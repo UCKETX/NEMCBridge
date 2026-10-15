@@ -7,7 +7,9 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net"
+	"runtime"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/Happy2018new/nemc-tan-lobby-solver/core/raknet/internal"
@@ -222,18 +224,37 @@ func (dialer Dialer) DialContext(ctx context.Context, address string) (*Conn, er
 		return nil, dialer.error("dial", err)
 	}
 	dialer.ErrorLog = dialer.ErrorLog.With("src", "dialer", "raddr", conn.RemoteAddr().String())
+	// Interrupt reads even when the caller cancels a context without a deadline.
+	stopCancel := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopCancel()
+	ok := false
+	defer func() {
+		if !ok {
+			_ = conn.Close()
+		}
+	}()
 
 	version := dialer.ProtocolVersion
-	if version == 0 { version = protocolVersion }
+	if version == 0 {
+		version = protocolVersion
+	}
 	cs := &connState{protocol: version, conn: conn, raddr: conn.RemoteAddr(), id: atomic.AddInt64(&dialerID, 1), ticker: time.NewTicker(time.Second / 2)}
 	defer cs.ticker.Stop()
 	if err = cs.discoverMTU(ctx); err != nil {
-		return nil, dialer.error("dial", err)
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
+		return nil, dialer.error("dial", fmt.Errorf("discover MTU: %w", err))
 	} else if err = cs.openConnection(ctx); err != nil {
-		return nil, dialer.error("dial", err)
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
+		return nil, dialer.error("dial", fmt.Errorf("open connection: %w", err))
 	}
 
-	return dialer.connect(ctx, cs)
+	rakConn, err := dialer.connect(ctx, cs)
+	ok = err == nil
+	return rakConn, err
 }
 
 // dial finishes the RakNet connection sequence and returns a Conn if
@@ -283,9 +304,9 @@ func (dialer Dialer) clientListen(rakConn *Conn, conn net.Conn) {
 // finalised. It holds some data collected during the connection.
 type connState struct {
 	protocol byte
-	conn  net.Conn
-	raddr net.Addr
-	id    int64
+	conn     net.Conn
+	raddr    net.Addr
+	id       int64
 
 	// mtu is the final MTU size found by sending an open connection request
 	// 1 packet. It is the MTU size sent by the server.
@@ -303,62 +324,97 @@ var mtuSizes = []uint16{1492, 1200, 576}
 // can send, by sending multiple open connection request 1 packets to the
 // server with a decreasing MTU size padding.
 func (state *connState) discoverMTU(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go state.request1(ctx, mtuSizes)
-
+	// Linux may report a probe's path-MTU failure on Read instead of Write.
+	// Probe sequentially so this error advances to a smaller size immediately
+	// and no concurrent sender can keep sending the rejected size.
+	defer func() {
+		deadline, _ := ctx.Deadline()
+		_ = state.conn.SetReadDeadline(deadline)
+	}()
 	b := make([]byte, 1492)
-	for {
-		// Start reading in a loop so that we can find an open connection reply
-		// 1 packet.
-		n, err := state.conn.Read(b)
-		if err != nil || n == 0 {
-			state.close()
-			return err
-		}
-		switch b[0] {
-		case message.IDOpenConnectionReply1:
-			response := &message.OpenConnectionReply1{}
-			if err := response.UnmarshalBinary(b[1:n]); err != nil {
-				return fmt.Errorf("read open connection reply 1: %w", err)
+	var mtuErr error
+sizes:
+	for _, size := range mtuSizes {
+		for range 3 {
+			if err := ctx.Err(); err != nil {
+				return err
 			}
-			state.serverSecurity, state.cookie = response.ServerHasSecurity, response.Cookie
-			if response.ServerGUID == 0 || response.MTU < 400 || response.MTU > 1500 {
-				// This is an awful hack we cooked up to deal with OVH 'DDoS'
-				// protection. For some reason they send a broken MTU size
-				// first. Sending a Request2 followed by a Request1 deals with
-				// this.
-				state.openConnectionRequest2(response.MTU)
-				continue
+			if err := state.openConnectionRequest1(size); err != nil {
+				if isMTUError(err) {
+					mtuErr = err
+					continue sizes
+				}
+				return err
 			}
-			state.mtu = response.MTU
-			return nil
-		case message.IDIncompatibleProtocolVersion:
-			response := &message.IncompatibleProtocolVersion{}
-			if err := response.UnmarshalBinary(b[1:n]); err != nil {
-				return fmt.Errorf("read incompatible protocol version: %w", err)
+			deadline := time.Now().Add(time.Second / 2)
+			if end, ok := ctx.Deadline(); ok && end.Before(deadline) {
+				deadline = end
 			}
-			return fmt.Errorf("mismatched protocol: client protocol = %v, server protocol = %v", state.protocol, response.ServerProtocol)
+			if err := state.conn.SetReadDeadline(deadline); err != nil {
+				return err
+			}
+			for {
+				n, err := state.conn.Read(b)
+				if err != nil {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
+					if isMTUError(err) {
+						mtuErr = err
+						continue sizes
+					}
+					var timeout net.Error
+					if errors.As(err, &timeout) && timeout.Timeout() {
+						break
+					}
+					return err
+				}
+				if n == 0 {
+					continue
+				}
+				switch b[0] {
+				case message.IDOpenConnectionReply1:
+					response := &message.OpenConnectionReply1{}
+					if err := response.UnmarshalBinary(b[1:n]); err != nil {
+						return fmt.Errorf("read open connection reply 1: %w", err)
+					}
+					state.serverSecurity, state.cookie = response.ServerHasSecurity, response.Cookie
+					if response.ServerGUID == 0 || response.MTU < 400 || response.MTU > 1500 {
+						// This is an awful hack we cooked up to deal with OVH 'DDoS'
+						// protection. For some reason they send a broken MTU size
+						// first. Sending a Request2 followed by a Request1 deals with
+						// this.
+						state.openConnectionRequest2(response.MTU)
+						continue
+					}
+					// A late reply to an earlier, larger probe must not undo fallback.
+					state.mtu = min(response.MTU, size)
+					return nil
+				case message.IDIncompatibleProtocolVersion:
+					response := &message.IncompatibleProtocolVersion{}
+					if err := response.UnmarshalBinary(b[1:n]); err != nil {
+						return fmt.Errorf("read incompatible protocol version: %w", err)
+					}
+					return fmt.Errorf("mismatched protocol: client protocol = %v, server protocol = %v", state.protocol, response.ServerProtocol)
+				}
+			}
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if mtuErr != nil {
+		return fmt.Errorf("no usable MTU after probes %v: %w", mtuSizes, mtuErr)
+	}
+	return fmt.Errorf("no reply to MTU probes: %w", context.DeadlineExceeded)
 }
 
-// request1 sends a message.OpenConnectionRequest1 three times for each mtu
-// size passed, spaced by 500ms.
-func (state *connState) request1(ctx context.Context, sizes []uint16) {
-	state.ticker.Reset(time.Second / 2)
-	for _, size := range sizes {
-		for range 3 {
-			state.openConnectionRequest1(size)
-			select {
-			case <-state.ticker.C:
-				continue
-			case <-ctx.Done():
-				return
-			}
-		}
+func isMTUError(err error) bool {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
+		return false
 	}
+	return errno == syscall.EMSGSIZE || runtime.GOOS == "windows" && errno == syscall.Errno(10040)
 }
 
 // openConnection sends open connection request 2 packets continuously
@@ -385,6 +441,9 @@ func (state *connState) openConnection(ctx context.Context) error {
 		if err = pk.UnmarshalBinary(b[1:n]); err != nil {
 			return fmt.Errorf("read open connection reply 2: %w", err)
 		}
+		if pk.MTU < 400 || pk.MTU > state.mtu {
+			return fmt.Errorf("invalid negotiated MTU %d (requested %d)", pk.MTU, state.mtu)
+		}
 		state.mtu = pk.MTU
 		return nil
 	}
@@ -406,9 +465,13 @@ func (state *connState) request2(ctx context.Context, mtu uint16) {
 
 // openConnectionRequest1 sends an open connection request 1 packet to the
 // server. If not successful, an error is returned.
-func (state *connState) openConnectionRequest1(mtu uint16) {
-	data, _ := (&message.OpenConnectionRequest1{ClientProtocol: state.protocol, MTU: mtu}).MarshalBinary()
-	_, _ = state.conn.Write(data)
+func (state *connState) openConnectionRequest1(mtu uint16) error {
+	data, err := (&message.OpenConnectionRequest1{ClientProtocol: state.protocol, MTU: mtu}).MarshalBinary()
+	if err != nil {
+		return err
+	}
+	_, err = state.conn.Write(data)
+	return err
 }
 
 // openConnectionRequest2 sends an open connection request 2 packet to the

@@ -25,6 +25,7 @@ NEMCBridge 通过 FGAuth 登录房主机器人，持续创建网易《我的世�
 
 - **共同游玩**：区块加载、方块破坏与放置、双向文字聊天和玩家皮肤互显。
 - **房主常驻**：机器人保持房间连接，掉线后自动重试开房；重新开房时房间号可能变化。
+- **自动加好友**：机器人定时同意收到的好友申请，控制台可关闭。
 - **网页管理**：内置带管理员登录的 Web 控制台，配置验证服务器、令牌、后端地址和房间参数，查看连接状态与日志。
 - **终端启动界面**：蓝青色块字横幅，显示版本、访问地址和首次登录信息。
 - **跨平台部署**：Windows、Linux、macOS，分别提供 amd64 与 arm64 发布包。
@@ -101,20 +102,24 @@ Windows 环境已完成真实客户端互通验证；Actions 覆盖三个系统�
 git clone https://github.com/UCKETX/NEMCBridge.git
 cd NEMCBridge
 go test ./...
-go build -trimpath -o NEMCBridge .
-./NEMCBridge -data-dir ./data
+go build -trimpath -o build/NEMCBridge ./cmd/nemcbridge
+./build/NEMCBridge -data-dir ./data/dev
 ```
 
-Windows 可执行 `powershell -ExecutionPolicy Bypass -File scripts/build.ps1` 构建 `NEMCBridge.exe`。
+Windows 可执行 `powershell -ExecutionPolicy Bypass -File scripts/build.ps1` 构建 `build/NEMCBridge.exe`。
 
 ```text
 .github/       测试、构建、发布和协作模板
+cmd/nemcbridge/ 程序入口
 docs/          部署、兼容性、协议说明及图片
-internal/      鉴权、房间、转发、协议转换和数据存储
+internal/app/  控制台、房间管理和运行日志
+internal/webui/ 嵌入可执行文件的 Web 控制台
+internal/      鉴权、房间、转发、协议转换和数据存储等模块
 scripts/       构建、打包及本地测试工具
 vendor-src/    保留本地修改的上游协议模块
-web/           嵌入可执行文件的 Web 控制台
 ```
+
+本地生成的文件集中放在 `build/`（程序和打包产物）、`data/`（配置、凭据、日志）和 `runtime/`（测试服务器与临时诊断工具），这些目录不提交到仓库。
 
 开发与集成测试见 [CONTRIBUTING.md](CONTRIBUTING.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 

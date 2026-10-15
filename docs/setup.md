@@ -22,6 +22,8 @@ block-network-ids-are-hashes=true
 
 国际版玩家直接连接 BDS；需要远程直连时自行配置 UDP 端口转发、防火墙和访问权限。后端关闭 Xbox 登录认证后，名称、UUID、XUID 不能作为已认证账号的凭证。挂服机并不提供额外的玩家账号授权系统。
 
+网易玩家原始登录中的 XUID 通常为空。桥接会优先使用网易账号 `netease_uid`，缺失时使用 `netease_uuid`，生成固定的数字兼容 ID 并放入后端 XUID 字段，便于服务器日志及插件区分玩家；已有的有效 XUID 会保留。兼容 ID 不是微软分配的 Xbox XUID，不适用于 Xbox 账号查询或正版验证。映射不使用玩家名称、临时会话或随机数，登录转换保留原玩家 UUID；如果两种网易账号字段都缺失，则保持 XUID 为空。
+
 ## 配置与数据
 
 程序首次运行会在数据目录生成配置。Windows 双击程序时默认使用可执行文件所在目录；可用 `-data-dir` 指定独立目录。示例见 [`config.example.json`](../config.example.json)。
@@ -34,13 +36,21 @@ block-network-ids-are-hashes=true
 | `room_game_version` | 网易房间内核版本，当前适配 `1.21.120.0` |
 | `max_players` | 房间人数，2–40 |
 | `friends_only` / `allow_pvp` | 好友加入与 PvP 设置 |
+| `auto_accept_friends` | 自动同意机器人账号收到的好友申请，默认 `true` |
 | `auto_start` | 程序启动时自动开房 |
 | `web_port` | Web 控制台端口，默认 18321，监听所有 IPv4 网卡 |
 | `retry_seconds` | 掉线重试间隔，5–300 秒 |
+| `debug` | 详细诊断日志，默认 `false`；控制台可在开房期间即时切换 |
 
 令牌独立保存为 `secrets.dat`，不会写入 `config.json`。Windows 使用当前用户 DPAPI 加密；Linux/macOS 使用文件权限保护，不提供文件内容加密。跨系统迁移时请在新环境重新填写令牌。
 
+房间在线时，机器人默认每 30 秒检查并同意待处理好友申请（包括启动前收到的申请）。控制台「自动同意好友申请」可在停止房间后修改并保存。成功同意会写入普通日志；失败后独立退避重试，不会导致房间重建。停止房间会停止检查。此功能使用当前开房会话访问网易好友接口，不需要额外令牌或修改 FGAuth；不会主动向玩家发送申请。
+
 运行日志位于数据目录的 `logs/keeper.log`，状态快照为 `logs/status.json`。分享日志前请检查账号、玩家信息、地址及其他个人内容。
+
+默认记录开关房间、玩家进出、公开聊天、死亡消息和必要错误。遇到问题时，在「运行日志」旁开启「Debug 模式」，或使用 `./NEMCBridge -debug` 启动；详细日志带 `[DEBUG]` 前缀。网页开关即时生效并保存，无需重新开房；关闭后不再写入详细日志，已有日志会保留。
+
+游戏日志来自桥接连接实际收到的消息，不是 BDS 的完整审计日志。没有网易玩家连接时，无法记录国际版直连玩家的事件；服务端未广播的聊天、进出或死亡消息也无法记录。
 
 ## 管理员登录
 
@@ -83,7 +93,7 @@ Ctrl+C、SIGTERM 或网页的退出功能会正常关闭房间。停止房间不
 ## 升级与校验
 
 1. 下载新版本及同名 `.sha256` 文件。
-2. 校验压缩包，例如 Linux/macOS：`sha256sum -c NEMCBridge_v0.1.2_linux_amd64.tar.gz.sha256`。macOS 也可使用 `shasum -a 256 -c`；Windows 使用 `Get-FileHash` 与校验文件比对。
+2. 校验压缩包，例如 Linux/macOS：`sha256sum -c NEMCBridge_v0.1.3_linux_amd64.tar.gz.sha256`。macOS 也可使用 `shasum -a 256 -c`；Windows 使用 `Get-FileHash` 与校验文件比对。
 3. 正常退出旧挂服机，再替换可执行文件；保留自己的数据目录和 BDS 世界。
 4. 启动后确认后端状态和新房间号。
 

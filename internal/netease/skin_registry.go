@@ -22,7 +22,8 @@ import (
 // every NetEase recipient. All bridge players arrive through the NetEase room.
 type neteaseSkin struct {
 	name        string
-	xuid        string        // NetEase identity XUID; BDS only sees an empty one.
+	xuid        string        // Original NetEase XUID, before backend compatibility mapping.
+	backendXUID string        // Used only to restore outgoing NetEase chat identities.
 	uid         string        // NetEase account (netease_uid) for ConfirmSkin.
 	skin        protocol.Skin // Only the fields NormalizeLoginSkin rewrites.
 	growthLevel uint32
@@ -48,6 +49,8 @@ func OriginalLoginSkin(identity map[string]any, claims map[string]json.RawMessag
 		record.uid = uid
 	case float64:
 		record.uid = strconv.FormatFloat(uid, 'f', 0, 64)
+	case json.Number:
+		record.uid = string(uid)
 	}
 	decoded := func(key string) []byte {
 		var value string
@@ -79,6 +82,29 @@ func RememberSkin(id uuid.UUID, record neteaseSkin) {
 	neteaseSkins.Lock()
 	defer neteaseSkins.Unlock()
 	neteaseSkins.players[id] = record
+}
+
+func RememberBackendXUID(id uuid.UUID, xuid string) {
+	neteaseSkins.Lock()
+	defer neteaseSkins.Unlock()
+	if record, ok := neteaseSkins.players[id]; ok {
+		record.backendXUID = xuid
+		neteaseSkins.players[id] = record
+	}
+}
+
+func originalChatXUID(xuid string) (string, bool) {
+	if xuid == "" {
+		return "", false
+	}
+	neteaseSkins.Lock()
+	defer neteaseSkins.Unlock()
+	for _, record := range neteaseSkins.players {
+		if record.backendXUID == xuid {
+			return record.xuid, true
+		}
+	}
+	return "", false
 }
 
 func ForgetSkin(id uuid.UUID) {
@@ -153,17 +179,17 @@ func neteaseForeignSkin(skin *protocol.Skin) error {
 
 // Convert one skin for a NetEase recipient; growth level 0 if unknown.
 func neteaseRecipientSkin(id uuid.UUID, name string, skin *protocol.Skin) (uint32, error) {
-	level, _, err := neteaseRecipientEntry(id, name, skin)
+	level, _, _, err := neteaseRecipientEntry(id, name, skin)
 	return level, err
 }
 
 // Like neteaseRecipientSkin, also returning the NetEase player's own XUID.
-func neteaseRecipientEntry(id uuid.UUID, name string, skin *protocol.Skin) (uint32, string, error) {
+func neteaseRecipientEntry(id uuid.UUID, name string, skin *protocol.Skin) (uint32, string, bool, error) {
 	if record, ok := lookupNetEaseSkin(id, name); ok {
 		restoreNetEaseSkin(skin, record.skin)
-		return record.growthLevel, record.xuid, nil
+		return record.growthLevel, record.xuid, true, nil
 	}
-	return 0, "", neteaseForeignSkin(skin)
+	return 0, "", false, neteaseForeignSkin(skin)
 }
 
 // Names and shapes only: never identifiers, URLs, tokens or texture data.

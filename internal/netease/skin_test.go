@@ -130,6 +130,47 @@ func TestNetEaseRecipientsGetOriginalLoginSkin(t *testing.T) {
 	}
 }
 
+func TestNetEaseEmptyXUIDRestoredForPlayerListAndChat(t *testing.T) {
+	id := uuid.New()
+	identity, claims := netEaseLoginFixture(t, id)
+	identity["XUID"] = ""
+	_, record, ok := OriginalLoginSkin(identity, claims)
+	if !ok {
+		t.Fatal("invalid fixture")
+	}
+	RememberSkin(id, record)
+	defer ForgetSkin(id)
+	const compat = "5656789012345678901"
+	RememberBackendXUID(id, compat)
+	list := packet.PlayerList{Entries: []protocol.PlayerListEntry{{UUID: id, Username: "NetEasePlayer", XUID: compat, Skin: record.skin}}}
+	var body bytes.Buffer
+	list.Marshal(protocol.NewWriter(&body, 0))
+	converted, _, err := patchPlayerList860(append([]byte{63}, body.Bytes()...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded packet.PlayerList
+	decoded.Marshal(protocol.NewReader(bytes.NewBuffer(converted[1:]), 0, true))
+	if decoded.Entries[0].XUID != "" {
+		t.Fatal("backend compatibility ID leaked into NetEase PlayerList")
+	}
+	chat := textTestWire(&packet.Text{TextType: packet.TextTypeChat, SourceName: "NetEasePlayer", Message: "兼容聊天🌍", XUID: compat})
+	patched, err := patchText860(chat, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, n := binary.Uvarint(patched)
+	var text packet.Text
+	text.Marshal(protocol.NewReader(bytes.NewBuffer(patched[n:]), 0, true))
+	if text.XUID != "" || text.Message != "兼容聊天🌍" {
+		t.Fatal("NetEase chat identity does not match PlayerList")
+	}
+	ForgetSkin(id)
+	if _, ok := originalChatXUID(compat); ok {
+		t.Fatal("compatibility mapping outlived player session")
+	}
+}
+
 func TestPortableLegacySkinModelAndCacheIdentity(t *testing.T) {
 	legacy := []byte(`{"format_version":"1.8.0","geometry.netease.fixture":{"texturewidth":64,"textureheight":64,"visible_bounds_width":2,"visible_bounds_height":3,"visible_bounds_offset":[0,1,0],"bones":[{"name":"head","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[32,0],"mirror":true}]}]}}`)
 	skin := protocol.Skin{SkinID: "foreign-store", FullID: "foreign-full", PlayFabID: "foreign-playfab", PremiumSkin: true, SkinImageWidth: 128, SkinImageHeight: 128, SkinData: skinTestPixels(128), SkinGeometry: legacy, SkinResourcePatch: []byte(`{"geometry":{"default":"geometry.netease.fixture"},"other":"keep"}`)}

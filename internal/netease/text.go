@@ -31,6 +31,14 @@ func patchText860(pk []byte, toNetEase bool) (result []byte, err error) {
 		if buffer.Len() != 0 {
 			return nil, errors.New("后端聊天包包含未知字段")
 		}
+		// Match the original identity restored in PlayerList. BDS may be using
+		// a local compatibility XUID for an account whose NetEase XUID is empty.
+		if original, known := originalChatXUID(text.XUID); known && original != text.XUID {
+			text.XUID = original
+			var body bytes.Buffer
+			text.Marshal(protocol.NewWriter(&body, 0))
+			pk = append(append([]byte(nil), pk[:n]...), body.Bytes()...)
+		}
 		if text.TextType == packet.TextTypeChat || text.TextType == packet.TextTypePopup {
 			return append(append([]byte(nil), pk...), 0), nil
 		}

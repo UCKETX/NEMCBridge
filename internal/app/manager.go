@@ -1,9 +1,11 @@
-package main
+package app
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -19,6 +21,7 @@ import (
 	"nemcbridge/internal/bridge"
 	"nemcbridge/internal/config"
 	"nemcbridge/internal/fileutil"
+	"nemcbridge/internal/friends"
 	"nemcbridge/internal/redact"
 	"nemcbridge/internal/relay"
 	"nemcbridge/internal/room"
@@ -77,7 +80,22 @@ func (m *Manager) snapshot() Status {
 }
 
 func (m *Manager) event(message string) {
+	m.logEvent(message, false)
+}
+
+func (m *Manager) debug(message string) {
+	m.logEvent(message, true)
+}
+
+func (m *Manager) logEvent(message string, debug bool) {
 	m.mu.Lock()
+	if debug && !m.cfg.Debug {
+		m.mu.Unlock()
+		return
+	}
+	if debug {
+		message = "[DEBUG] " + message
+	}
 	message = redact.Sanitize(message, m.token)
 	m.status.Events = append(m.status.Events, Event{time.Now().Format("15:04:05"), message})
 	if len(m.status.Events) > 120 {
@@ -85,6 +103,24 @@ func (m *Manager) event(message string) {
 	}
 	m.mu.Unlock()
 	m.logger.Println(message)
+}
+
+func (m *Manager) setDebug(enabled bool) error {
+	m.mu.Lock()
+	c := m.cfg
+	c.Debug = enabled
+	if err := config.Save(filepath.Join(m.dir, "config.json"), c); err != nil {
+		m.mu.Unlock()
+		return err
+	}
+	m.cfg = c
+	m.mu.Unlock()
+	if enabled {
+		m.event("Debug 模式已开启")
+	} else {
+		m.event("Debug 模式已关闭")
+	}
+	return nil
 }
 
 func (m *Manager) update(fn func(*Status)) {
@@ -193,17 +229,17 @@ func (m *Manager) run(ctx context.Context, cfg config.Config, token string, done
 		version, err := bridge.PingUpstream(ctx, cfg.Upstream)
 		if err == nil {
 			m.update(func(s *Status) { s.UpstreamOnline = true; s.UpstreamVersion = version; s.Phase = "authenticating" })
-			m.event("本地 Bedrock 服务器在线，版本 " + version + "；开始鉴权")
+			m.debug("本地 Bedrock 服务器在线，版本 " + version + "；开始鉴权")
 			var info auth.CreateInfo
 			authCtx, cancel := context.WithTimeout(ctx, 75*time.Second)
 			info, err = auth.FetchCreate(authCtx, cfg, token)
 			cancel()
 			if err == nil {
 				m.update(func(s *Status) { s.Account = info.UserPlayerName; s.ProtocolID = info.ProtocolID; s.Phase = "creating" })
-				m.event(fmt.Sprintf("鉴权通过，房间协议 %d；连接开房节点", info.ProtocolID))
+				m.debug(fmt.Sprintf("鉴权通过，房间协议 %d；连接开房节点", info.ProtocolID))
 				var opened *room.Room
 				createCtx, cancel := context.WithTimeout(ctx, 35*time.Second)
-				opened, err = room.Open(createCtx, cfg, info, m.event)
+				opened, err = room.Open(createCtx, cfg, info, m.debug)
 				cancel()
 				if err == nil {
 					failures = 0
@@ -214,7 +250,7 @@ func (m *Manager) run(ctx context.Context, cfg config.Config, token string, done
 						s.LastError = ""
 					})
 					m.event(fmt.Sprintf("房间 %d 已上线，房主机器人持续保活", opened.ID))
-					err = m.serveRoom(ctx, cfg, opened)
+					err = m.serveRoom(ctx, cfg, opened, info)
 					opened.Close()
 				}
 			}
@@ -255,9 +291,18 @@ func (m *Manager) run(ctx context.Context, cfg config.Config, token string, done
 	}
 }
 
-func (m *Manager) serveRoom(ctx context.Context, cfg config.Config, r *room.Room) error {
+func (m *Manager) serveRoom(ctx context.Context, cfg config.Config, r *room.Room, info auth.CreateInfo) error {
+	gameLogs := newGameLogs(m.event)
 	sessionCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	friendDone := make(chan struct{})
+	go func() {
+		defer close(friendDone)
+		if cfg.AutoAcceptFriends {
+			friends.Run(sessionCtx, info.UserUniqueID, info.EncryptKeyBytes, m.event, m.debug)
+		}
+	}()
+	defer func() { cancel(); <-friendDone }()
 	var bridges sync.WaitGroup
 	acceptDone := make(chan struct{})
 	defer func() {
@@ -266,17 +311,17 @@ func (m *Manager) serveRoom(ctx context.Context, cfg config.Config, r *room.Room
 		<-acceptDone
 		bridges.Wait()
 	}()
-	errors := make(chan error, 1)
+	acceptErrors := make(chan error, 1)
 	go func() {
 		defer close(acceptDone)
 		for {
 			conn, err := r.Accept()
 			if err != nil {
-				errors <- err
+				acceptErrors <- err
 				return
 			}
 			if conn == nil {
-				errors <- net.ErrClosed
+				acceptErrors <- net.ErrClosed
 				return
 			}
 			m.mu.Lock()
@@ -298,7 +343,7 @@ func (m *Manager) serveRoom(ctx context.Context, cfg config.Config, r *room.Room
 						s.Players--
 					}
 				})
-				m.event("玩家连接已建立，正在转发到本地服务器")
+				m.debug("玩家连接已建立，正在转发到本地服务器")
 				dialCtx, stop := context.WithTimeout(sessionCtx, 8*time.Second)
 				server, err := bdsraknet.DialContext(dialCtx, cfg.Upstream)
 				stop()
@@ -307,17 +352,23 @@ func (m *Manager) serveRoom(ctx context.Context, cfg config.Config, r *room.Room
 					return
 				}
 				defer server.Close()
-				m.event("本地服务器 RakNet 连接成功")
-				backend, err := bridge.New(server, m.event)
+				m.debug("本地服务器 RakNet 连接成功")
+				backend, err := bridge.New(server, m.debug)
 				if err != nil {
 					m.event("无法生成后端连接密钥")
 					return
 				}
 				defer backend.ForgetSkin()
-				clientStream := &relay.Observed{Stream: client, Label: "玩家 → 本地服务器", Trace: m.event}
-				serverStream := &relay.Observed{Stream: backend, Label: "本地服务器 → 玩家", Trace: m.event}
+				gameSource := gameLogs.attach()
+				defer gameLogs.detach(gameSource)
+				backend.OnGameEvent = func(e bridge.GameEvent) { gameLogs.observe(gameSource, e) }
+				clientStream := &relay.Observed{Stream: client, Label: "玩家 → 本地服务器", Trace: m.debug}
+				serverStream := &relay.Observed{Stream: backend, Label: "本地服务器 → 玩家", Trace: m.debug}
 				err = relay.Relay(sessionCtx, clientStream, serverStream)
-				m.event(fmt.Sprintf("玩家转发连接已断开：%v；上行 %d 包，下行 %d 包", err, clientStream.Count, serverStream.Count))
+				m.debug(fmt.Sprintf("玩家转发连接已断开：%v；上行 %d 包，下行 %d 包", err, clientStream.Count, serverStream.Count))
+				if err != nil && sessionCtx.Err() == nil && !errors.Is(err, net.ErrClosed) && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
+					m.event(fmt.Sprintf("玩家连接异常：%v", err))
+				}
 			}(conn.(*nethernet.Conn))
 		}
 	}()
@@ -331,7 +382,7 @@ func (m *Manager) serveRoom(ctx context.Context, cfg config.Config, r *room.Room
 		case <-r.Done():
 			cancel()
 			return r.Error()
-		case err := <-errors:
+		case err := <-acceptErrors:
 			cancel()
 			return fmt.Errorf("WebRTC 信令断开: %w", err)
 		case <-ticker.C:

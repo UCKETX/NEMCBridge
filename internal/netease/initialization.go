@@ -14,7 +14,9 @@ import (
 
 // ServerConverter rewrites server batches for one NetEase client connection.
 type ServerConverter struct {
-	Trace            func(string)
+	Trace func(string)
+	// Observe receives original packets before conversion; it must not modify them.
+	Observe          func([]byte)
 	largeBatchLogged bool
 }
 
@@ -39,6 +41,9 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 		id, n := binary.Uvarint(pk)
 		if n <= 0 {
 			return nil, errors.New("初始化数据包头无效")
+		}
+		if b.Observe != nil {
+			b.Observe(pk)
 		}
 		switch id & 0x3ff {
 		case 9:
@@ -191,6 +196,14 @@ func ConvertClient(compressed []byte) ([]byte, error) {
 	changed := false
 	for i, pk := range packets {
 		id, n := binary.Uvarint(pk)
+		if n > 0 && id&0x3ff == packet.IDCommandRequest {
+			packets[i], err = patchCommandRequest860(pk)
+			if err != nil {
+				return nil, err
+			}
+			changed = true
+			continue
+		}
 		if n > 0 && id&0x3ff == 9 {
 			packets[i], err = patchText860(pk, false)
 			if err != nil {
@@ -321,11 +334,12 @@ func convertPlayerList860(pk []byte, traces ...func(string)) (result []byte, add
 			traces[0](fmt.Sprintf("后端玩家皮肤：pixels=%dx%d RGBA=%d trusted=%v premium=%v override=%v", skin.SkinImageWidth, skin.SkinImageHeight, len(skin.SkinData), skin.Trusted, skin.PremiumSkin, skin.OverrideAppearance))
 		}
 		var xuid string
-		levels[i], xuid, err = neteaseRecipientEntry(entry.UUID, entry.Username, skin)
+		var known bool
+		levels[i], xuid, known, err = neteaseRecipientEntry(entry.UUID, entry.Username, skin)
 		if err != nil {
 			return nil, nil, err
 		}
-		if xuid != "" {
+		if known {
 			entry.XUID = xuid
 		}
 		if len(traces) > 0 && traces[0] != nil {

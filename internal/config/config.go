@@ -13,21 +13,23 @@ import (
 )
 
 type Config struct {
-	AuthServer      string `json:"auth_server"`
-	Upstream        string `json:"upstream"`
-	RoomName        string `json:"room_name"`
-	RoomGameVersion string `json:"room_game_version"`
-	RoomPassword    string `json:"room_password"`
-	MaxPlayers      int    `json:"max_players"`
-	FriendsOnly     bool   `json:"friends_only"`
-	AllowPvP        bool   `json:"allow_pvp"`
-	AutoStart       bool   `json:"auto_start"`
-	WebPort         int    `json:"web_port"`
-	RetrySeconds    int    `json:"retry_seconds"`
+	AuthServer        string `json:"auth_server"`
+	Upstream          string `json:"upstream"`
+	RoomName          string `json:"room_name"`
+	RoomGameVersion   string `json:"room_game_version"`
+	RoomPassword      string `json:"room_password"`
+	MaxPlayers        int    `json:"max_players"`
+	FriendsOnly       bool   `json:"friends_only"`
+	AutoAcceptFriends bool   `json:"auto_accept_friends"`
+	AllowPvP          bool   `json:"allow_pvp"`
+	AutoStart         bool   `json:"auto_start"`
+	WebPort           int    `json:"web_port"`
+	RetrySeconds      int    `json:"retry_seconds"`
+	Debug             bool   `json:"debug"`
 }
 
 func Default() Config {
-	return Config{AuthServer: "https://fgauth.ucket.top", Upstream: "127.0.0.1:19132", RoomName: "来和我一起玩吧！", RoomGameVersion: "1.21.120.0", MaxPlayers: 10, AllowPvP: true, WebPort: 18321, RetrySeconds: 10}
+	return Config{AuthServer: "https://fgauth.ucket.top", Upstream: "127.0.0.1:19132", RoomName: "来和我一起玩吧！", RoomGameVersion: "1.21.120.0", MaxPlayers: 10, AllowPvP: true, AutoAcceptFriends: true, WebPort: 18321, RetrySeconds: 10}
 }
 
 func (c Config) Validate() error {

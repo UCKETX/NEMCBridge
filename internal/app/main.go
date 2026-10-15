@@ -1,13 +1,11 @@
-package main
+package app
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -24,20 +22,17 @@ import (
 	"nemcbridge/internal/config"
 	"nemcbridge/internal/secret"
 	"nemcbridge/internal/session"
+	"nemcbridge/internal/webui"
 )
 
-//go:embed web/*
-var webFiles embed.FS
-
-// Set by the release workflow. Local builds retain the dev defaults.
+// Supplied by the command entry point. Local builds retain the dev defaults.
 var version = "dev"
 var commit = "unknown"
 
-func main() {
-	if err := runMain(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+// Run starts the console and room manager with the executable's build metadata.
+func Run(buildVersion, buildCommit string) error {
+	version, commit = buildVersion, buildCommit
+	return runMain()
 }
 func runMain() error {
 	showVersion := flag.Bool("version", false, "显示版本和源代码提交")
@@ -45,6 +40,7 @@ func runMain() error {
 	headless := flag.Bool("headless", false, "不自动打开浏览器")
 	webPort := flag.Int("web-port", 0, "临时覆盖控制台端口")
 	run := flag.Bool("run", false, "启动后自动开房")
+	debug := flag.Bool("debug", false, "开启详细诊断日志（也可在控制台即时切换）")
 	check := flag.Bool("check", false, "检查本地服务器和真实鉴权，然后退出")
 	importToken := flag.Bool("import-token", false, "从标准输入读取令牌并保存")
 	resetAdmin := flag.Bool("reset-admin-password", false, "重置管理密码并在终端显示新密码")
@@ -77,6 +73,9 @@ func runMain() error {
 		if err = cfg.Validate(); err != nil {
 			return err
 		}
+	}
+	if *debug {
+		cfg.Debug = true
 	}
 	if *importToken {
 		b, err := io.ReadAll(io.LimitReader(os.Stdin, 8192))
@@ -207,7 +206,7 @@ func makeHandler(m *Manager, admin *consoleAuth) http.Handler {
 		_ = json.NewEncoder(w).Encode(data)
 	}
 	mux.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
-		page, err := webFiles.ReadFile("web/login.html")
+		page, err := webui.Files.ReadFile("login.html")
 		if err != nil {
 			http.Error(w, "登录页面不可用", http.StatusInternalServerError)
 			return
@@ -226,6 +225,22 @@ func makeHandler(m *Manager, admin *consoleAuth) http.Handler {
 		respond(w, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("POST /api/stop", func(w http.ResponseWriter, r *http.Request) { m.stop(); respond(w, map[string]bool{"ok": true}) })
+	mux.HandleFunc("POST /api/debug", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Enabled *bool `json:"enabled"`
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&body); err != nil || body.Enabled == nil {
+			http.Error(w, "请指定 enabled 为 true 或 false", http.StatusBadRequest)
+			return
+		}
+		if err := m.setDebug(*body.Enabled); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		respond(w, map[string]bool{"ok": true})
+	})
 	mux.HandleFunc("POST /api/exit", func(w http.ResponseWriter, r *http.Request) {
 		respond(w, map[string]bool{"ok": true})
 		m.exitOnce.Do(func() { close(m.exit) })
@@ -247,8 +262,7 @@ func makeHandler(m *Manager, admin *consoleAuth) http.Handler {
 		}
 		respond(w, map[string]bool{"ok": true})
 	})
-	assets, _ := fs.Sub(webFiles, "web")
-	mux.Handle("GET /", http.FileServer(http.FS(assets)))
+	mux.Handle("GET /", http.FileServer(http.FS(webui.Files)))
 	allowedHosts := consoleHosts(m.snapshot().Config.WebPort, consoleIPv4Addresses())
 	protected := admin.protect(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
