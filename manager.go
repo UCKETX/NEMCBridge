@@ -15,15 +15,15 @@ import (
 	"github.com/Happy2018new/nemc-tan-lobby-solver/core/nethernet"
 	bdsraknet "github.com/sandertv/go-raknet"
 
-	"lobbykeeper/internal/auth"
-	"lobbykeeper/internal/bridge"
-	"lobbykeeper/internal/config"
-	"lobbykeeper/internal/fileutil"
-	"lobbykeeper/internal/redact"
-	"lobbykeeper/internal/relay"
-	"lobbykeeper/internal/room"
-	"lobbykeeper/internal/secret"
-	"lobbykeeper/internal/session"
+	"nemcbridge/internal/auth"
+	"nemcbridge/internal/bridge"
+	"nemcbridge/internal/config"
+	"nemcbridge/internal/fileutil"
+	"nemcbridge/internal/redact"
+	"nemcbridge/internal/relay"
+	"nemcbridge/internal/room"
+	"nemcbridge/internal/secret"
+	"nemcbridge/internal/session"
 )
 
 type Event struct {

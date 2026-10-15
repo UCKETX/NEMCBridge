@@ -30,6 +30,7 @@ func Acquire(token string) (*Session, error) {
 	if err != nil {
 		return nil, errors.New("无法确定机器人会话锁目录")
 	}
+	// Retain the legacy namespace so older running builds share the same lock.
 	return AcquireAt(filepath.Join(cache, "LobbyKeeper", "sessions"), token)
 }
 

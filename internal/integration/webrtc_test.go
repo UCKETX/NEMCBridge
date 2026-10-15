@@ -16,9 +16,9 @@ import (
 	"github.com/Happy2018new/nemc-tan-lobby-solver/core/nethernet"
 	bdsraknet "github.com/sandertv/go-raknet"
 
-	"lobbykeeper/internal/bridge"
-	"lobbykeeper/internal/gamebatch"
-	"lobbykeeper/internal/relay"
+	"nemcbridge/internal/bridge"
+	"nemcbridge/internal/gamebatch"
+	"nemcbridge/internal/relay"
 )
 
 // Local signaling lets the integration test exercise real ICE/DTLS/SCTP without

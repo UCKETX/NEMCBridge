@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"lobbykeeper/internal/redact"
+	"nemcbridge/internal/redact"
 )
 
 // Inspect only the initial unencrypted network settings request. Later login

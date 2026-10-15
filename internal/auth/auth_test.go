@@ -10,8 +10,8 @@ import (
 
 	"github.com/Happy2018new/nemc-tan-lobby-solver/bunker"
 
-	"lobbykeeper/internal/config"
-	"lobbykeeper/internal/secret"
+	"nemcbridge/internal/config"
+	"nemcbridge/internal/secret"
 )
 
 func TestAuthContractAndSensitiveErrors(t *testing.T) {

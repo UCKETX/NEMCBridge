@@ -18,7 +18,7 @@ import (
 // NetEase clients render other players' skins only in the shape NetEase
 // itself produces: the original SkinId, legacy geometry, PremiumSkin=true,
 // OverrideSkin=false and the client's own TrustedSkin flag. BDS only ever sees
-// the downsampled LobbyKeeper custom skin, so restore the login original for
+// the downsampled NEMCBridge custom skin, so restore the login original for
 // every NetEase recipient. All bridge players arrive through the NetEase room.
 type neteaseSkin struct {
 	name        string

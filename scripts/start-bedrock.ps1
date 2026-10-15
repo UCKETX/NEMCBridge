@@ -15,7 +15,7 @@ if (-not (Test-Path -LiteralPath $taskOriginal)) {
     Copy-Item -LiteralPath $taskProperties -Destination $taskOriginal
 }
 $taskSettings = [ordered]@{
-    'server-name' = 'LobbyKeeper 1.21.124 Test'
+    'server-name' = 'NEMCBridge 1.21.124 Test'
     'gamemode' = 'creative'
     'difficulty' = 'peaceful'
     'allow-cheats' = 'true'
@@ -28,7 +28,7 @@ $taskSettings = [ordered]@{
     'tick-distance' = '4'
     'max-threads' = '2'
     'player-idle-timeout' = '0'
-    'level-name' = 'LobbyKeeper-Test-1.21.124'
+    'level-name' = 'LobbyKeeper-Test-1.21.124' # Preserve existing worlds across the rename.
     'level-seed' = '20261015'
 }
 $taskContent = [IO.File]::ReadAllText($taskProperties)

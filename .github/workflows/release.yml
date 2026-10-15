@@ -121,8 +121,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           set -euo pipefail
-          binary=LobbyKeeper
-          if [[ "$GOOS" == windows ]]; then binary=LobbyKeeper.exe; fi
+          binary=NEMCBridge
+          if [[ "$GOOS" == windows ]]; then binary=NEMCBridge.exe; fi
           mkdir -p build
           go build -trimpath -ldflags "-s -w -X main.version=$VERSION -X main.commit=$GITHUB_SHA" -o "build/$binary" .
           echo "binary=build/$binary" >> "$GITHUB_OUTPUT"
@@ -134,7 +134,7 @@ jobs:
         run: python3 scripts/package_release.py --os "$TARGET_OS" --arch "$TARGET_ARCH" --version "$VERSION" --binary "$BINARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: LobbyKeeper-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: NEMCBridge-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
           if-no-files-found: error
           retention-days: 7
@@ -157,7 +157,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: LobbyKeeper-*
+          pattern: NEMCBridge-*
           path: dist
           merge-multiple: true
       - name: Check package hashes and immutable tag
@@ -170,7 +170,7 @@ jobs:
           if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
             [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" == "$GITHUB_SHA" ]]
           fi
-      - name: Publish private repository release
+      - name: Publish release
         shell: bash
         run: |
           set -euo pipefail
@@ -179,8 +179,8 @@ jobs:
           else
             notes="docs/releases/$RELEASE_TAG.md"
             if [[ -f "$notes" ]]; then
-              gh release create "$RELEASE_TAG" dist/* --target "$GITHUB_SHA" --title "LobbyKeeper $RELEASE_TAG" --notes-file "$notes"
+              gh release create "$RELEASE_TAG" dist/* --target "$GITHUB_SHA" --title "NEMCBridge $RELEASE_TAG" --notes-file "$notes"
             else
-              gh release create "$RELEASE_TAG" dist/* --target "$GITHUB_SHA" --title "LobbyKeeper $RELEASE_TAG" --generate-notes
+              gh release create "$RELEASE_TAG" dist/* --target "$GITHUB_SHA" --title "NEMCBridge $RELEASE_TAG" --generate-notes
             fi
           fi

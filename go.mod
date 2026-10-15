@@ -1,4 +1,4 @@
-module lobbykeeper
+module nemcbridge
 
 go 1.25.0
 

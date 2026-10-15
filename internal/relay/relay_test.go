@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"lobbykeeper/internal/relay/relaytest"
+	"nemcbridge/internal/relay/relaytest"
 )
 
 func TestRelayPacketBoundariesAndCancellation(t *testing.T) {

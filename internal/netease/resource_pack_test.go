@@ -9,7 +9,7 @@ import (
 	stdprotocol "github.com/sandertv/gophertunnel/minecraft/protocol"
 	stdpacket "github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/gamebatch"
+	"nemcbridge/internal/gamebatch"
 )
 
 func TestNetEaseSkipsServerResourcePacks(t *testing.T) {

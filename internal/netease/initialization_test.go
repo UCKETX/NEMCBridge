@@ -10,8 +10,8 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/gamebatch"
-	"lobbykeeper/internal/netease/neteasetest"
+	"nemcbridge/internal/gamebatch"
+	"nemcbridge/internal/netease/neteasetest"
 )
 
 func TestCompressedInitializationPreservesCompleteBatch(t *testing.T) {

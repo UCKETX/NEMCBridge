@@ -95,7 +95,7 @@ func portableClassicSkin(skin *protocol.Skin) (bool, error) {
 	hash.Write(skin.SkinData)
 	hash.Write(skin.SkinGeometry)
 	hash.Write(skin.SkinResourcePatch)
-	skin.SkinID = fmt.Sprintf("LobbyKeeper_%x", hash.Sum(nil)[:16])
+	skin.SkinID = fmt.Sprintf("NEMCBridge_%x", hash.Sum(nil)[:16])
 	skin.FullID = skin.SkinID
 	skin.PlayFabID = ""
 	skin.PremiumSkin = false

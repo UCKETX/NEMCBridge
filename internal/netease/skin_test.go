@@ -13,7 +13,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/gamebatch"
+	"nemcbridge/internal/gamebatch"
 )
 
 func skinTestPixels(width int) []byte {
@@ -32,7 +32,7 @@ func TestForeignSkinUsesNetEaseFlags(t *testing.T) {
 		geometry := []byte(`{"format_version":"1.12.0","minecraft:geometry":[{"description":{"identifier":"geometry.humanoid.custom","texture_width":64,"texture_height":64},"bones":[{"name":"head","pivot":[0,24,0]}]}]}`)
 		skin := protocol.Skin{PremiumSkin: premium, SkinImageWidth: 64, SkinImageHeight: 64, SkinData: skinTestPixels(64), SkinGeometry: geometry, SkinResourcePatch: []byte(`{"geometry":{"default":"geometry.humanoid.custom"}}`)}
 		level, err := neteaseRecipientSkin(uuid.New(), "foreign", &skin)
-		if err != nil || level != 0 || !skin.PremiumSkin || skin.OverrideAppearance || !skin.Trusted || !strings.HasPrefix(skin.SkinID, "LobbyKeeper_") {
+		if err != nil || level != 0 || !skin.PremiumSkin || skin.OverrideAppearance || !skin.Trusted || !strings.HasPrefix(skin.SkinID, "NEMCBridge_") {
 			t.Fatal("foreign skin not in NetEase shape", err)
 		}
 		before := skin
@@ -76,10 +76,10 @@ func TestNetEaseRecipientsGetOriginalLoginSkin(t *testing.T) {
 	}
 	var backendID string
 	json.Unmarshal(claims["SkinId"], &backendID)
-	if !strings.HasPrefix(backendID, "LobbyKeeper_") {
+	if !strings.HasPrefix(backendID, "NEMCBridge_") {
 		t.Fatal("backend login skin not normalized")
 	}
-	// What BDS relays: the downsampled LobbyKeeper skin with BDS flags.
+	// What BDS relays: the downsampled NEMCBridge skin with BDS flags.
 	backend := protocol.Skin{SkinID: backendID, FullID: backendID + "cape", CapeID: "cape", SkinImageWidth: 128, SkinImageHeight: 128, SkinData: skinTestPixels(128), SkinGeometry: []byte(`{}`), SkinResourcePatch: []byte(`{}`), OverrideAppearance: true}
 	list := packet.PlayerList{Entries: []protocol.PlayerListEntry{{UUID: id, Username: "NetEasePlayer", Skin: backend}}}
 	var payload bytes.Buffer
@@ -137,7 +137,7 @@ func TestPortableLegacySkinModelAndCacheIdentity(t *testing.T) {
 	if err != nil || !changed {
 		t.Fatal(err)
 	}
-	if skin.PremiumSkin || skin.PlayFabID != "" || !skin.Trusted || !skin.OverrideAppearance || !strings.HasPrefix(skin.SkinID, "LobbyKeeper_") || skin.FullID != skin.SkinID || string(skin.GeometryDataEngineVersion) != "1.12.0" {
+	if skin.PremiumSkin || skin.PlayFabID != "" || !skin.Trusted || !skin.OverrideAppearance || !strings.HasPrefix(skin.SkinID, "NEMCBridge_") || skin.FullID != skin.SkinID || string(skin.GeometryDataEngineVersion) != "1.12.0" {
 		t.Fatal("foreign catalog identity not converted")
 	}
 	var original, result, patch map[string]any

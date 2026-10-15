@@ -25,3 +25,30 @@ __pycache__/
 # Upstream demo applications are not part of the game relay.
 /vendor-src/nemc-tan-lobby-solver/core/sctp/examples/
 /vendor-src/nemc-tan-lobby-solver/core/webrtc/examples/
+
+# Local workstation files.
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Source builds and downloaded release packages.
+/LobbyKeeper
+/LobbyKeeper_*.zip
+/LobbyKeeper_*.tar.gz
+/LobbyKeeper_*.sha256
+
+# NEMCBridge source builds and release archives.
+/NEMCBridge
+/NEMCBridge_*.zip
+/NEMCBridge_*.tar.gz
+/NEMCBridge_*.sha256
+
+# NEMCBridge source builds and release archives.
+/NEMCBridge
+/NEMCBridge_*.zip
+/NEMCBridge_*.tar.gz
+/NEMCBridge_*.sha256

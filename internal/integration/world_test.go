@@ -20,11 +20,11 @@ import (
 	stdprotocol "github.com/sandertv/gophertunnel/minecraft/protocol"
 	stdpacket "github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/bridge"
-	"lobbykeeper/internal/gamebatch"
-	"lobbykeeper/internal/netease"
-	"lobbykeeper/internal/netease/neteasetest"
-	"lobbykeeper/internal/relay"
+	"nemcbridge/internal/bridge"
+	"nemcbridge/internal/gamebatch"
+	"nemcbridge/internal/netease"
+	"nemcbridge/internal/netease/neteasetest"
+	"nemcbridge/internal/relay"
 )
 
 func makeOfflineTestLogin(t *testing.T, overrides ...map[string]any) []byte {
@@ -133,7 +133,7 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 	skinVerified := len(skinOverrides) == 0
 	subChunkRequested, terrainProvided := false, false
 	chatSent, chatReceived := false, false
-	chatMessage := "LobbyKeeper 中文双向聊天 🌍 " + loginUUID.String()[:8]
+	chatMessage := "NEMCBridge 中文双向聊天 🌍 " + loginUUID.String()[:8]
 	var runtimeID uint64
 	seenIDs := map[uint64]bool{}
 	for i := 0; i < 512; i++ {
@@ -261,13 +261,13 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 							if entry.UUID != loginUUID {
 								continue
 							}
-							// BDS relays the downsampled LobbyKeeper skin; a NetEase recipient
+							// BDS relays the downsampled NEMCBridge skin; a NetEase recipient
 							// must instead receive the player's original login skin.
 							original, _ := override["SkinId"].(string)
 							if original == "" {
 								original = "KeeperTest"
 							}
-							if entry.Skin.SkinID != original || strings.HasPrefix(entry.Skin.SkinID, "LobbyKeeper_") || entry.Skin.PremiumSkin != (override["PremiumSkin"] == true) || !entry.Skin.Trusted {
+							if entry.Skin.SkinID != original || strings.HasPrefix(entry.Skin.SkinID, "NEMCBridge_") || entry.Skin.PremiumSkin != (override["PremiumSkin"] == true) || !entry.Skin.Trusted {
 								t.Fatal("NetEase recipient did not receive the original login skin identity")
 							}
 							width := uint32(override["SkinImageWidth"].(int))

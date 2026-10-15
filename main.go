@@ -19,11 +19,11 @@ import (
 	"syscall"
 	"time"
 
-	"lobbykeeper/internal/auth"
-	"lobbykeeper/internal/bridge"
-	"lobbykeeper/internal/config"
-	"lobbykeeper/internal/secret"
-	"lobbykeeper/internal/session"
+	"nemcbridge/internal/auth"
+	"nemcbridge/internal/bridge"
+	"nemcbridge/internal/config"
+	"nemcbridge/internal/secret"
+	"nemcbridge/internal/session"
 )
 
 //go:embed web/*
@@ -50,7 +50,7 @@ func runMain() error {
 	duration := flag.Int("run-seconds", 0, "运行指定秒数后关房退出（测试用）")
 	flag.Parse()
 	if *showVersion {
-		fmt.Printf("LobbyKeeper %s (%s/%s, commit %s)\n", version, runtime.GOOS, runtime.GOARCH, commit)
+		fmt.Printf("NEMCBridge %s (%s/%s, commit %s)\n", version, runtime.GOOS, runtime.GOARCH, commit)
 		return nil
 	}
 	if *base == "" {
@@ -92,7 +92,10 @@ func runMain() error {
 		fmt.Println("令牌已保存：" + secret.StorageDescription())
 		return nil
 	}
-	token := os.Getenv("LOBBYKEEPER_TOKEN")
+	token := os.Getenv("NEMCBRIDGE_TOKEN")
+	if token == "" {
+		token = os.Getenv("LOBBYKEEPER_TOKEN") // Compatibility with existing deployments.
+	}
 	if token == "" {
 		token, err = secret.Load(filepath.Join(dir, "secrets.dat"))
 		if err != nil {

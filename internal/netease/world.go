@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"lobbykeeper/internal/gamebatch"
+	"nemcbridge/internal/gamebatch"
 )
 
 // The international protocol 860 StartGame ends with checksum(u64), UUID(16),

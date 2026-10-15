@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"lobbykeeper/internal/fileutil"
+	"nemcbridge/internal/fileutil"
 )
 
 type dataBlob struct {

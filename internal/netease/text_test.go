@@ -11,7 +11,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/gamebatch"
+	"nemcbridge/internal/gamebatch"
 )
 
 func textTestWire(p *packet.Text) []byte {

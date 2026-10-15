@@ -14,8 +14,8 @@ import (
 
 	"github.com/Happy2018new/nemc-tan-lobby-solver/bunker"
 
-	"lobbykeeper/internal/config"
-	"lobbykeeper/internal/redact"
+	"nemcbridge/internal/config"
+	"nemcbridge/internal/redact"
 )
 
 type CreateInfo struct {
@@ -48,7 +48,7 @@ func FetchCreate(ctx context.Context, cfg config.Config, token string) (CreateIn
 		return info, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "LobbyKeeper/1.0")
+	req.Header.Set("User-Agent", "NEMCBridge/1.0")
 	resp, err := newAuthHTTP(cfg.AuthServer).Do(req)
 	if err != nil {
 		return info, fmt.Errorf("验证站连接失败: %v", err)

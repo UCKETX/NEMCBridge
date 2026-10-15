@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"lobbykeeper/internal/fileutil"
+	"nemcbridge/internal/fileutil"
 )
 
 type Config struct {

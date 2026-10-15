@@ -8,7 +8,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/gamebatch"
+	"nemcbridge/internal/gamebatch"
 )
 
 // Resource pack negotiation summaries: counts, codes and sizes only.

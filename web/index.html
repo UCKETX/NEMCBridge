@@ -1,6 +1,6 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>本地联机挂服机</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
-<body><main><header><div><small>LOBBY KEEPER</small><h1>让房间一直在线<span class="dot"></span></h1><p>网易本地联机 · Bedrock 服务器转发</p></div><div class="chip" id="phase">正在连接控制台</div></header>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NEMCBridge 控制台</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main><header><div><small>NEMCBRIDGE</small><h1>让玩家在同一世界相遇<span class="dot"></span></h1><p>网易本地联机 · Bedrock 服务器转发</p></div><div class="chip" id="phase">正在连接控制台</div></header>
 <section class="hero"><div><label>本地联机房间号</label><div id="room-id" class="room-number">—</div><p id="room-note">启动房主机器人后，房间号会显示在这里。</p></div><div class="actions"><button id="start" class="primary">启动房间</button><button id="stop" disabled>停止房间</button><button id="copy" disabled>复制房间号</button></div></section>
 <div class="stats"><article><label>本地服务器</label><strong id="upstream">等待检查</strong><small id="version">—</small></article><article><label>在线玩家</label><strong id="players">0</strong><small>房主机器人持续连接</small></article><article><label>房主账号</label><strong id="account">—</strong><small id="protocol">等待鉴权</small></article><article><label>在线时间</label><strong id="uptime">—</strong><small id="retry">自动断线重连已启用</small></article></div>
 <div id="notice" role="status"></div><div class="columns"><section class="panel"><div class="section-title"><h2>房间设置</h2><span>停止后可修改</span></div><form id="config">

@@ -1,0 +1,33 @@
+name: Bug 报告
+description: 报告连接、协议或控制台问题
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: 请先核对 README 的兼容版本。不要提交令牌、secrets.dat、玩家身份数据或原始抓包；安全漏洞请按 SECURITY.md 私密反馈。
+  - type: input
+    id: version
+    attributes:
+      label: NEMCBridge 版本
+      placeholder: v0.1.2 或源代码提交
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 运行环境
+      description: 系统与架构、网易完整版本、国际版版本、BDS 版本，以及是否安装模组或资源包。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤与实际结果
+      description: 说明操作步骤、预期表现及实际失败阶段。
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脱敏日志或截图
+      description: 删除账号、玩家信息、网络地址、令牌及其他个人数据后再上传。

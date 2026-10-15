@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"lobbykeeper/internal/config"
-	"lobbykeeper/internal/session"
+	"nemcbridge/internal/config"
+	"nemcbridge/internal/session"
 )
 
 func TestManagerRejectsDuplicateBeforeLogin(t *testing.T) {

@@ -23,9 +23,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"lobbykeeper/internal/gamebatch"
-	"lobbykeeper/internal/netease"
-	"lobbykeeper/internal/relay"
+	"nemcbridge/internal/gamebatch"
+	"nemcbridge/internal/netease"
+	"nemcbridge/internal/relay"
 )
 
 // NetherNet encrypts at DTLS; RakNet BDS also requires the game AES handshake.

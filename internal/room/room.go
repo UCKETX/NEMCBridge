@@ -19,8 +19,8 @@ import (
 	"github.com/Happy2018new/nemc-tan-lobby-solver/protocol/packet"
 	"github.com/Happy2018new/nemc-tan-lobby-solver/protocol/service/signaling"
 
-	"lobbykeeper/internal/auth"
-	"lobbykeeper/internal/config"
+	"nemcbridge/internal/auth"
+	"nemcbridge/internal/config"
 )
 
 type Room struct {
@@ -140,7 +140,7 @@ func Open(ctx context.Context, cfg config.Config, info auth.CreateInfo, trace fu
 	}
 	if err = r.write(&packet.TanCreateRoomRequest{
 		Capacity: uint8(cfg.MaxPlayers), Privacy: privacy, Name: "", Slogan: cfg.RoomName, Password: cfg.RoomPassword,
-		Tips: encoding.RoomTips{LevelID: "LobbyKeeper", GameType: 0, ConstantTestString: "test", ProtocolID: info.ProtocolID, GameVersion: cfg.RoomGameVersion},
+		Tips: encoding.RoomTips{LevelID: "NEMCBridge", GameType: 0, ConstantTestString: "test", ProtocolID: info.ProtocolID, GameVersion: cfg.RoomGameVersion},
 		PvP:  cfg.AllowPvP, PlayerAuth: 1, EnableWebRTC: true, OwnerPing: 3, PerfLv: 1,
 	}); err != nil {
 		return nil, err

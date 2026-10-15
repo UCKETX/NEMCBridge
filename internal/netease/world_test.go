@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"lobbykeeper/internal/gamebatch"
+	"nemcbridge/internal/gamebatch"
 )
 
 func TestWorldCompatibilityPreservesBlockHashMode(t *testing.T) {

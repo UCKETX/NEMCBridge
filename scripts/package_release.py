@@ -68,7 +68,7 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     platform = "macos" if args.os == "darwin" else args.os
-    name = f"LobbyKeeper_{args.version}_{platform}_{args.arch}"
+    name = f"NEMCBridge_{args.version}_{platform}_{args.arch}"
     suffix = ".zip" if args.os == "windows" else ".tar.gz"
     archive = output / (name + suffix)
     with tempfile.TemporaryDirectory(prefix=".package-", dir=output) as temporary:
@@ -77,16 +77,33 @@ def main():
             raise RuntimeError("staging directory is outside output")
         package = staging / name
         package.mkdir()
-        executable = package / ("LobbyKeeper.exe" if args.os == "windows" else "LobbyKeeper")
+        executable = package / ("NEMCBridge.exe" if args.os == "windows" else "NEMCBridge")
         shutil.copyfile(binary, executable)
         executable.chmod(0o755)
         for source, destination in (
             ("docs/RELEASE_README.md", "README.md"),
             ("config.example.json", "config.example.json"),
             ("THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md"),
-            ("docs/协议参考记录.md", "协议参考记录.md"),
+            ("LICENSE", "LICENSE"),
+            ("docs/protocol.md", "docs/protocol.md"),
+            ("docs/setup.md", "docs/setup.md"),
+            ("docs/compatibility.md", "docs/compatibility.md"),
+            ("CONTRIBUTING.md", "CONTRIBUTING.md"),
         ):
-            shutil.copyfile(root / source, package / destination)
+            (package / destination).parent.mkdir(parents=True, exist_ok=True)
+            if source == "docs/RELEASE_README.md":
+                # The release README moves from docs/ to the archive root.
+                text = (root / source).read_text(encoding="utf-8")
+                for before, after in (
+                    ("](setup.md)", "](docs/setup.md)"),
+                    ("](compatibility.md)", "](docs/compatibility.md)"),
+                    ("](../LICENSE)", "](LICENSE)"),
+                    ("](../THIRD_PARTY_NOTICES.md)", "](THIRD_PARTY_NOTICES.md)"),
+                ):
+                    text = text.replace(before, after)
+                (package / destination).write_text(text, encoding="utf-8")
+            else:
+                shutil.copyfile(root / source, package / destination)
         copy_licenses(root, package / "licenses")
         if args.os == "windows":
             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as target:
@@ -95,7 +112,7 @@ def main():
                         target.write(path, path.relative_to(staging).as_posix())
         else:
             def unix_permissions(info):
-                info.mode = 0o755 if info.isdir() or info.name.endswith("/LobbyKeeper") else 0o644
+                info.mode = 0o755 if info.isdir() or info.name.endswith("/NEMCBridge") else 0o644
                 return info
 
             with tarfile.open(archive, "w:gz") as target:

@@ -5,7 +5,7 @@ package secret
 import (
 	"os"
 
-	"lobbykeeper/internal/fileutil"
+	"nemcbridge/internal/fileutil"
 )
 
 func StorageDescription() string { return "以仅当前用户可读写的 0600 权限保存" }

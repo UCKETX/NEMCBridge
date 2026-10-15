@@ -12,9 +12,9 @@ import (
 	stdprotocol "github.com/sandertv/gophertunnel/minecraft/protocol"
 	stdpacket "github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/bridge"
-	"lobbykeeper/internal/gamebatch"
-	"lobbykeeper/internal/relay"
+	"nemcbridge/internal/bridge"
+	"nemcbridge/internal/gamebatch"
+	"nemcbridge/internal/relay"
 )
 
 func TestBDSResourcePackSkippedForNetEase(t *testing.T) {

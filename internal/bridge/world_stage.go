@@ -6,8 +6,8 @@ import (
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
-	"lobbykeeper/internal/gamebatch"
-	"lobbykeeper/internal/relay"
+	"nemcbridge/internal/gamebatch"
+	"nemcbridge/internal/relay"
 )
 
 // Inspect packet IDs and fixed loading milestones; never record login or skin
