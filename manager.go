@@ -306,6 +306,7 @@ func (m *Manager) serveRoom(ctx context.Context, cfg Config, room *Room) error {
 					m.event("无法生成后端连接密钥")
 					return
 				}
+				defer backend.forgetSkin()
 				clientStream := &observedStream{packetStream: client, label: "玩家 → 本地服务器", trace: m.event}
 				serverStream := &observedStream{packetStream: backend, label: "本地服务器 → 玩家", trace: m.event}
 				err = relayPackets(sessionCtx, clientStream, serverStream)

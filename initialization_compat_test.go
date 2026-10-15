@@ -177,14 +177,24 @@ func TestPlayerListPreservesSkinsAndAppendsNetEaseGroups(t *testing.T) {
 	if err != nil || count != 2 {
 		t.Fatal("player list conversion failed", err)
 	}
-	if !bytes.Equal(converted[:len(wire)-2], wire[:len(wire)-2]) || !bytes.Equal(converted[len(wire)-2:len(wire)], []byte{1, 1}) || !bytes.Equal(converted[len(wire):], make([]byte, 16)) {
-		t.Fatal("player skin/identity bytes changed or extension group widths incorrect")
+	if len(converted) != len(wire)+16 || !bytes.Equal(converted[len(wire)-2:len(wire)], []byte{1, 1}) || !bytes.Equal(converted[len(wire):], make([]byte, 16)) {
+		t.Fatal("extension group widths incorrect")
 	}
 	buffer := bytes.NewBuffer(converted[1:])
 	var decoded packet.PlayerList
 	decoded.Marshal(protocol.NewReader(buffer, 0, true))
-	if buffer.Len() != 16 || !decoded.Entries[0].Host || !decoded.Entries[0].Skin.Trusted || !decoded.Entries[1].Skin.Trusted || !decoded.Entries[1].Teacher {
+	if buffer.Len() != 16 || !decoded.Entries[0].Host || !decoded.Entries[1].Teacher {
 		t.Fatal("independent standard reader lost player metadata")
+	}
+	for i, entry := range decoded.Entries {
+		want := list.Entries[i]
+		want.Skin.Trusted, want.Skin.PremiumSkin = true, true
+		var got, expected bytes.Buffer
+		entry.Marshal(protocol.NewWriter(&got, 0))
+		want.Marshal(protocol.NewWriter(&expected, 0))
+		if !bytes.Equal(got.Bytes(), expected.Bytes()) || entry.Skin.Trusted != want.Skin.Trusted {
+			t.Fatal("foreign player changed beyond NetEase skin flags")
+		}
 	}
 	remove := []byte{63, 1, 0}
 	unchanged, count, err := patchPlayerList860(remove)
@@ -228,5 +238,28 @@ func TestResourcePackStackNetEaseEmptyArrays(t *testing.T) {
 	packets, _ := splitGameBatch(result[1:])
 	if !bytes.Equal(packets[0], append(p, 0, 0)) {
 		t.Fatal("resource pack extension arrays missing")
+	}
+}
+
+func TestAddPlayerGainsNetEaseExtension(t *testing.T) {
+	spawn := packet.AddPlayer{UUID: uuid.New(), Username: "Keeper", EntityRuntimeID: 7, DeviceID: "device", BuildPlatform: 7, EntityMetadata: map[uint32]any{}}
+	var payload bytes.Buffer
+	spawn.Marshal(protocol.NewWriter(&payload, 0))
+	wire := append([]byte{12}, payload.Bytes()...)
+	neighbor := []byte{69, 16, 8}
+	batch := append([]byte{0xff}, joinGameBatch([][]byte{wire, neighbor})...)
+	converted, err := (&bedrockBridge{}).patchInitialization860(batch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packets, err := splitGameBatch(converted[1:])
+	if err != nil || len(packets) != 2 || !bytes.Equal(packets[1], neighbor) {
+		t.Fatal("adjacent packet damaged", err)
+	}
+	buffer := bytes.NewBuffer(packets[0][1:])
+	var decoded packet.AddPlayer
+	decoded.Marshal(protocol.NewReader(buffer, 0, true))
+	if decoded.UUID != spawn.UUID || decoded.DeviceID != "device" || decoded.BuildPlatform != 7 || !bytes.Equal(buffer.Bytes(), make([]byte, neteaseAddPlayerExtensionSize)) {
+		t.Fatal("NetEase AddPlayer extension missing or common fields changed")
 	}
 }

@@ -25,6 +25,9 @@ func (b *bedrockBridge) patchInitialization860(compressed []byte) ([]byte, error
 		return nil, err
 	}
 	changed := false
+	// NetEase servers follow a player's skin with ConfirmSkin (228) once it
+	// has been checked; clients render other players' skins only after it.
+	confirms := map[int][]byte{}
 	for i, pk := range packets {
 		id, n := binary.Uvarint(pk)
 		if n <= 0 {
@@ -44,6 +47,11 @@ func (b *bedrockBridge) patchInitialization860(compressed []byte) ([]byte, error
 			packets[i], err = patchPlayerSkin860(pk, true)
 			if err != nil {
 				return nil, err
+			}
+			if len(pk) >= n+16 {
+				var entry protocol.PlayerListEntry
+				protocol.NewReader(bytes.NewReader(pk[n:n+16]), 0, true).UUID(&entry.UUID)
+				confirms[i] = confirmSkinPacket([]protocol.PlayerListEntry{entry})
 			}
 			changed = true
 		case 148:
@@ -84,12 +92,36 @@ func (b *bedrockBridge) patchInitialization860(compressed []byte) ([]byte, error
 			if b.trace != nil {
 				b.trace("CraftingData 网易转换：补齐配方扩展数组和设置")
 			}
-		case 7:
-			// Eulogist 4.8.0 NetEase ResourcePackStack appends two pack arrays.
-			packets[i] = append(append([]byte(nil), pk...), 0, 0)
+		case 12:
+			// Eulogist 4.8.0 NetEase AddPlayer (0x140e3a900) writes String,
+			// String, Bool, Bool, Uint32, Int64 after BuildPlatform. Without
+			// them the client reads past the end of every other player's spawn.
+			packets[i] = append(append([]byte(nil), pk...), make([]byte, neteaseAddPlayerExtensionSize)...)
 			changed = true
 			if b.trace != nil {
-				b.trace("ResourcePackStack 网易转换：补齐两个空资源包数组")
+				b.trace("AddPlayer 网易转换：补齐 16 字节玩家扩展")
+			}
+		case 6:
+			var removed int
+			packets[i], removed, err = neteaseResourcePacksInfo(pk)
+			if err != nil {
+				return nil, err
+			}
+			if removed > 0 {
+				changed = true
+				if b.trace != nil {
+					b.trace(fmt.Sprintf("ResourcePacksInfo 网易转换：网易客户端不支持游戏内下载，跳过 %d 个服务器资源包", removed))
+				}
+			}
+		case 7:
+			var removed int
+			packets[i], removed, err = neteaseResourcePackStack(pk)
+			if err != nil {
+				return nil, err
+			}
+			changed = true
+			if b.trace != nil {
+				b.trace(fmt.Sprintf("ResourcePackStack 网易转换：移除 %d 个服务器包，补齐两个空资源包数组", removed))
 			}
 		case 11:
 			packets[i], err = patchWorldPacket860(pk, b.trace)
@@ -107,21 +139,32 @@ func (b *bedrockBridge) patchInitialization860(compressed []byte) ([]byte, error
 				b.trace("BiomeDefinitionList 网易转换：逐条补齐两个字段，关闭客户端地形生成数据")
 			}
 		case 63:
-			var entries int
-			packets[i], entries, err = patchPlayerList860(pk, b.trace)
+			var added []protocol.PlayerListEntry
+			packets[i], added, err = convertPlayerList860(pk, b.trace)
 			if err != nil {
 				return nil, err
 			}
-			if entries > 0 {
+			if len(added) > 0 {
 				changed = true
+				confirms[i] = confirmSkinPacket(added)
 				if b.trace != nil {
-					b.trace(fmt.Sprintf("PlayerList 网易转换：补齐 %d 名玩家的列表扩展", entries))
+					b.trace(fmt.Sprintf("PlayerList 网易转换：补齐 %d 名玩家的列表扩展，并发送皮肤确认", len(added)))
 				}
 			}
 		}
 	}
 	if !changed {
 		return compressed, nil
+	}
+	if len(confirms) > 0 {
+		withConfirms := make([][]byte, 0, len(packets)+len(confirms))
+		for i, pk := range packets {
+			withConfirms = append(withConfirms, pk)
+			if confirm, ok := confirms[i]; ok {
+				withConfirms = append(withConfirms, confirm)
+			}
+		}
+		packets = withConfirms
 	}
 	converted := joinGameBatch(packets)
 	return encodeConvertedGameBatch(compressed, converted)
@@ -245,53 +288,75 @@ func patchClientInitialization860(compressed []byte) ([]byte, error) {
 	return encodeConvertedGameBatch(compressed, joinGameBatch(packets))
 }
 
+// Two empty strings, two false flags, a zero uint32 and a zero int64.
+const neteaseAddPlayerExtensionSize = 1 + 1 + 1 + 1 + 4 + 8
+
 // NetEase's add-player list includes five extra groups after Skin.Trusted:
 // optional-entry bool[], optional-entry bool[], string[], uint32[], bool[].
+// neomega-core names the uint32 group GrowthLevels (NetEase launcher level).
 // Each group has exactly the player count, without another length prefix.
 // Eulogist 4.8.0 uses absent entries, empty strings and zero levels/flags.
 func patchPlayerList860(pk []byte, traces ...func(string)) (result []byte, entries int, err error) {
+	result, added, err := convertPlayerList860(pk, traces...)
+	return result, len(added), err
+}
+
+// convertPlayerList860 also returns the added players for ConfirmSkin.
+func convertPlayerList860(pk []byte, traces ...func(string)) (result []byte, added []protocol.PlayerListEntry, err error) {
 	defer func() {
 		if recover() != nil {
-			result, entries, err = nil, 0, errors.New("玩家列表皮肤或字段格式无效")
+			result, added, err = nil, nil, errors.New("玩家列表皮肤或字段格式无效")
 		}
 	}()
 	_, n := binary.Uvarint(pk)
 	if n <= 0 || len(pk) < n+2 {
-		return nil, 0, errors.New("玩家列表包不完整")
+		return nil, nil, errors.New("玩家列表包不完整")
 	}
 	if pk[n] == 1 {
-		return pk, 0, nil // Removal has no NetEase extensions.
+		return pk, nil, nil // Removal has no NetEase extensions.
 	}
 	if pk[n] != 0 {
-		return nil, 0, errors.New("玩家列表操作类型无效")
+		return nil, nil, errors.New("玩家列表操作类型无效")
 	}
 	count, m := binary.Uvarint(pk[n+1:])
 	if m <= 0 || count > 1024 || count > uint64(len(pk)-n-1-m)/17 {
-		return nil, 0, errors.New("玩家列表数量或长度无效")
+		return nil, nil, errors.New("玩家列表数量或长度无效")
 	}
 	buffer := bytes.NewBuffer(pk[n:])
 	var list packet.PlayerList
 	list.Marshal(protocol.NewReader(buffer, 0, true))
 	if buffer.Len() != 0 || len(list.Entries) != int(count) {
-		return nil, 0, errors.New("玩家列表包含未知字段或数量不一致")
+		return nil, nil, errors.New("玩家列表包含未知字段或数量不一致")
 	}
+	levels := make([]uint32, len(list.Entries))
 	for i := range list.Entries {
-		skin := &list.Entries[i].Skin
+		entry := &list.Entries[i]
+		skin := &entry.Skin
 		if len(traces) > 0 && traces[0] != nil {
-			traces[0](fmt.Sprintf("后端玩家皮肤：pixels=%dx%d RGBA=%d geometry=%d patch=%d trusted=%v persona=%v premium=%v override=%v", skin.SkinImageWidth, skin.SkinImageHeight, len(skin.SkinData), len(skin.SkinGeometry), len(skin.SkinResourcePatch), skin.Trusted, skin.PersonaSkin, skin.PremiumSkin, skin.OverrideAppearance))
+			traces[0](fmt.Sprintf("后端玩家皮肤：pixels=%dx%d RGBA=%d trusted=%v premium=%v override=%v", skin.SkinImageWidth, skin.SkinImageHeight, len(skin.SkinData), skin.Trusted, skin.PremiumSkin, skin.OverrideAppearance))
 		}
-		if len(list.Entries[i].Skin.SkinData) > 0 {
-			list.Entries[i].Skin.Trusted = true
+		var xuid string
+		levels[i], xuid, err = neteaseRecipientEntry(entry.UUID, entry.Username, skin)
+		if err != nil {
+			return nil, nil, err
 		}
-		if _, err := neteaseClassicSkin(&list.Entries[i].Skin); err != nil {
-			return nil, 0, err
+		if xuid != "" {
+			entry.XUID = xuid
+		}
+		if len(traces) > 0 && traces[0] != nil {
+			traces[0](fmt.Sprintf("发往网易的玩家皮肤：pixels=%dx%d RGBA=%d geometry=%d patch=%d trusted=%v persona=%v premium=%v override=%v", skin.SkinImageWidth, skin.SkinImageHeight, len(skin.SkinData), len(skin.SkinGeometry), len(skin.SkinResourcePatch), skin.Trusted, skin.PersonaSkin, skin.PremiumSkin, skin.OverrideAppearance))
 		}
 	}
 	var body bytes.Buffer
 	list.Marshal(protocol.NewWriter(&body, 0))
 	result = append(append([]byte(nil), pk[:n]...), body.Bytes()...)
-	result = append(result, make([]byte, int(count)*8)...)
-	return result, int(count), nil
+	// Two absent optional profiles and empty strings, one byte per player each.
+	result = append(result, make([]byte, int(count)*3)...)
+	for _, level := range levels {
+		result = binary.LittleEndian.AppendUint32(result, level)
+	}
+	result = append(result, make([]byte, int(count))...)
+	return result, list.Entries, nil
 }
 
 // The protocol 860 standard decoder consumes all optional generation data.

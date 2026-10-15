@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // NetherNet encrypts at DTLS; RakNet BDS also requires the game AES handshake.
@@ -38,6 +40,7 @@ type bedrockBridge struct {
 	clientStages     uint32
 	serverPacketIDs  map[uint64]bool
 	largeBatchLogged bool
+	skinPlayer       uuid.UUID
 }
 
 func newBedrockBridge(server packetStream, trace func(string)) (*bedrockBridge, error) {
@@ -61,6 +64,9 @@ func (b *bedrockBridge) Write(p []byte) (int, error) {
 	}
 	if b.writes > 2 && b.writes <= 64 && len(p) > 1 {
 		b.observeWorldStage(p[1:], true)
+	}
+	if b.writes > 2 && b.writes <= 64 && len(p) > 1 {
+		traceResourcePackPackets(p[1:], true, b.trace)
 	}
 	if b.writes > 2 && len(p) > 1 {
 		converted, err := patchClientInitialization860(p[1:])
@@ -98,6 +104,9 @@ func (b *bedrockBridge) ReadPacket() ([]byte, error) {
 			plain, err := b.recv.decrypt(p[1:])
 			if err != nil {
 				return nil, err
+			}
+			if b.reads <= 8 {
+				traceResourcePackPackets(plain, false, b.trace)
 			}
 			plain, err = b.patchInitialization860(plain)
 			if err != nil {
@@ -142,6 +151,13 @@ func (b *bedrockBridge) ReadPacket() ([]byte, error) {
 		if len(remaining) > 0 {
 			return append([]byte{0xfe, 0xff}, joinGameBatch(remaining)...), nil
 		}
+	}
+}
+
+// forgetSkin drops the player's original NetEase skin once the session ends.
+func (b *bedrockBridge) forgetSkin() {
+	if b.skinPlayer != uuid.Nil {
+		forgetNetEaseSkin(b.skinPlayer)
 	}
 }
 
@@ -219,6 +235,15 @@ func (b *bedrockBridge) rewriteLogin(wire []byte) ([]byte, error) {
 		}
 		if b.trace != nil {
 			b.trace("客户端皮肤元数据（不含内容）：" + skinClaimsSummary(skin))
+		}
+		if b.trace != nil {
+			for _, line := range loginShapeSummary(identity, skin) {
+				b.trace(line)
+			}
+		}
+		if id, record, ok := originalLoginSkin(identity, skin); ok {
+			rememberNetEaseSkin(id, record)
+			b.skinPlayer = id
 		}
 		skinChange, err := normalizeLoginSkin(skin)
 		if err != nil {

@@ -27,19 +27,106 @@ func skinTestPixels(width int) []byte {
 	return pixels
 }
 
-func TestNetEaseKeepsClassicSkinClassification(t *testing.T) {
+func TestForeignSkinUsesNetEaseFlags(t *testing.T) {
 	for _, premium := range []bool{false, true} {
 		geometry := []byte(`{"format_version":"1.12.0","minecraft:geometry":[{"description":{"identifier":"geometry.humanoid.custom","texture_width":64,"texture_height":64},"bones":[{"name":"head","pivot":[0,24,0]}]}]}`)
 		skin := protocol.Skin{PremiumSkin: premium, SkinImageWidth: 64, SkinImageHeight: 64, SkinData: skinTestPixels(64), SkinGeometry: geometry, SkinResourcePatch: []byte(`{"geometry":{"default":"geometry.humanoid.custom"}}`)}
-		changed, err := neteaseClassicSkin(&skin)
-		if err != nil || !changed || skin.PremiumSkin != premium || !skin.OverrideAppearance || !skin.Trusted {
-			t.Fatal("NetEase classic classification changed", err)
+		level, err := neteaseRecipientSkin(uuid.New(), "foreign", &skin)
+		if err != nil || level != 0 || !skin.PremiumSkin || skin.OverrideAppearance || !skin.Trusted || !strings.HasPrefix(skin.SkinID, "LobbyKeeper_") {
+			t.Fatal("foreign skin not in NetEase shape", err)
 		}
 		before := skin
-		neteaseClassicSkin(&skin)
+		neteaseRecipientSkin(uuid.New(), "foreign", &skin)
 		if !reflect.DeepEqual(skin, before) {
 			t.Fatal("NetEase skin changes on repeat conversion")
 		}
+	}
+}
+
+func netEaseLoginFixture(t *testing.T, id uuid.UUID) (map[string]any, map[string]json.RawMessage) {
+	t.Helper()
+	legacy := `{"format_version":"1.8.0","geometry.netease.fixture":{"texturewidth":256,"textureheight":256,"bones":[{"name":"head","pivot":[0,24,0]}]}}`
+	values := map[string]any{
+		"SkinId": "netease-item-skin", "PlayFabId": "", "SkinImageWidth": 256, "SkinImageHeight": 256,
+		"SkinData":                      base64.StdEncoding.EncodeToString(skinTestPixels(256)),
+		"SkinGeometryData":              base64.StdEncoding.EncodeToString([]byte(legacy)),
+		"SkinResourcePatch":             base64.StdEncoding.EncodeToString([]byte(`{"geometry":{"default":"geometry.netease.fixture"}}`)),
+		"SkinGeometryDataEngineVersion": base64.StdEncoding.EncodeToString([]byte("0.0.0")),
+		"ArmSize":                       "wide", "PremiumSkin": true, "TrustedSkin": true, "OverrideSkin": false, "PersonaSkin": false, "GrowthLevel": 37, "CapeId": "",
+	}
+	claims := map[string]json.RawMessage{}
+	for key, value := range values {
+		claims[key], _ = json.Marshal(value)
+	}
+	return map[string]any{"identity": id.String(), "displayName": "NetEasePlayer", "XUID": "123456789", "netease_uid": float64(1261597877)}, claims
+}
+
+func TestNetEaseRecipientsGetOriginalLoginSkin(t *testing.T) {
+	id := uuid.New()
+	identity, claims := netEaseLoginFixture(t, id)
+	parsed, record, ok := originalLoginSkin(identity, claims)
+	if !ok || parsed != id || record.growthLevel != 37 {
+		t.Fatal("original NetEase login skin not captured")
+	}
+	original := record.skin
+	rememberNetEaseSkin(id, record)
+	defer forgetNetEaseSkin(id)
+	if _, err := normalizeLoginSkin(claims); err != nil {
+		t.Fatal(err)
+	}
+	var backendID string
+	json.Unmarshal(claims["SkinId"], &backendID)
+	if !strings.HasPrefix(backendID, "LobbyKeeper_") {
+		t.Fatal("backend login skin not normalized")
+	}
+	// What BDS relays: the downsampled LobbyKeeper skin with BDS flags.
+	backend := protocol.Skin{SkinID: backendID, FullID: backendID + "cape", CapeID: "cape", SkinImageWidth: 128, SkinImageHeight: 128, SkinData: skinTestPixels(128), SkinGeometry: []byte(`{}`), SkinResourcePatch: []byte(`{}`), OverrideAppearance: true}
+	list := packet.PlayerList{Entries: []protocol.PlayerListEntry{{UUID: id, Username: "NetEasePlayer", Skin: backend}}}
+	var payload bytes.Buffer
+	list.Marshal(protocol.NewWriter(&payload, 0))
+	converted, count, err := patchPlayerList860(append([]byte{63}, payload.Bytes()...))
+	if err != nil || count != 1 {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(converted[len(converted)-8:], []byte{0, 0, 0, 37, 0, 0, 0, 0}) {
+		t.Fatal("growth level extension not filled")
+	}
+	buffer := bytes.NewBuffer(converted[1:])
+	var decoded packet.PlayerList
+	decoded.Marshal(protocol.NewReader(buffer, 0, true))
+	skin := decoded.Entries[0].Skin
+	if decoded.Entries[0].XUID != "123456789" {
+		t.Fatal("NetEase recipient did not receive the player's XUID")
+	}
+	if lines := loginShapeSummary(identity, claims); len(lines) < 2 || strings.Contains(strings.Join(lines, ""), "123456789") {
+		t.Fatal("login shape summary missing or leaked an identifier")
+	}
+	if skin.SkinID != original.SkinID || skin.FullID != original.SkinID+"cape" || skin.SkinImageWidth != 256 || !bytes.Equal(skin.SkinData, original.SkinData) || !bytes.Equal(skin.SkinGeometry, original.SkinGeometry) || !bytes.Equal(skin.SkinResourcePatch, original.SkinResourcePatch) || string(skin.GeometryDataEngineVersion) != "0.0.0" || !skin.PremiumSkin || !skin.Trusted || skin.OverrideAppearance || skin.CapeID != "cape" {
+		t.Fatal("NetEase recipient did not receive the original skin")
+	}
+	// A NetEase in-game skin change is remembered before downsampling.
+	changed := original
+	changed.SkinID = "netease-item-skin-2"
+	update := packet.PlayerSkin{UUID: id, Skin: changed}
+	payload.Reset()
+	update.Marshal(protocol.NewWriter(&payload, 0))
+	upstream, err := patchPlayerSkin860(append([]byte{93}, payload.Bytes()...), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	downstream, err := patchPlayerSkin860(upstream, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buffer = bytes.NewBuffer(downstream[1:])
+	var relayed packet.PlayerSkin
+	relayed.Marshal(protocol.NewReader(buffer, 0, true))
+	if relayed.Skin.SkinID != "netease-item-skin-2" || relayed.Skin.SkinImageWidth != 256 || !relayed.Skin.PremiumSkin {
+		t.Fatal("NetEase skin change not restored for NetEase recipients")
+	}
+	forgetNetEaseSkin(id)
+	if _, ok := lookupNetEaseSkin(id, "NetEasePlayer"); ok {
+		t.Fatal("skin kept after the session ended")
 	}
 }
 
@@ -159,15 +246,15 @@ func TestPlayerSkinBothDirectionsAndBatchNeighbors(t *testing.T) {
 		t.Fatal(err)
 	}
 	packets, err = splitGameBatch(returned[1:])
-	if err != nil || !bytes.Equal(packets[0], neighbor) || !bytes.Equal(packets[1][:n], header) {
+	if err != nil || len(packets) != 3 || packets[2][0] != 228 || !bytes.Equal(packets[0], neighbor) || !bytes.Equal(packets[1][:n], header) {
 		t.Fatal("server conversion lost subclient/header", err)
 	}
 	buffer = bytes.NewBuffer(packets[1][n:])
 	var server packet.PlayerSkin
 	server.Marshal(protocol.NewReader(buffer, 0, true))
-	decoded.Skin.Trusted = true
+	decoded.Skin.Trusted, decoded.Skin.PremiumSkin, decoded.Skin.OverrideAppearance = true, true, false
 	if buffer.Len() != 0 || !reflect.DeepEqual(server, decoded) {
-		t.Fatal("server skin conversion changed more than trust")
+		t.Fatal("server skin conversion changed more than NetEase flags")
 	}
 	for _, broken := range [][]byte{wire[:len(wire)-1], append(append([]byte(nil), wire...), 0)} {
 		if _, err := patchPlayerSkin860(broken, false); err == nil {
@@ -217,5 +304,66 @@ func TestBDSSkinSizeCompatibility(t *testing.T) {
 				})
 			})
 		}
+	}
+}
+
+func TestPlayerListIsFollowedByConfirmSkin(t *testing.T) {
+	id := uuid.New()
+	identity, claims := netEaseLoginFixture(t, id)
+	_, record, ok := originalLoginSkin(identity, claims)
+	if !ok || record.uid != "1261597877" {
+		t.Fatal("NetEase uid not captured", record.uid)
+	}
+	rememberNetEaseSkin(id, record)
+	defer forgetNetEaseSkin(id)
+	foreign := uuid.New()
+	list := packet.PlayerList{Entries: []protocol.PlayerListEntry{
+		{UUID: id, Username: "NetEasePlayer", Skin: protocol.Skin{SkinImageWidth: 64, SkinImageHeight: 64, SkinData: skinTestPixels(64)}},
+		{UUID: foreign, Username: "Foreign", Skin: protocol.Skin{SkinImageWidth: 64, SkinImageHeight: 64, SkinData: skinTestPixels(64)}},
+	}}
+	var payload bytes.Buffer
+	list.Marshal(protocol.NewWriter(&payload, 0))
+	neighbor := []byte{69, 16, 8}
+	batch := append([]byte{0xff}, joinGameBatch([][]byte{append([]byte{63}, payload.Bytes()...), neighbor})...)
+	converted, err := (&bedrockBridge{}).patchInitialization860(batch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packets, err := splitGameBatch(converted[1:])
+	if err != nil || len(packets) != 3 || packets[0][0] != 63 || !bytes.Equal(packets[2], neighbor) {
+		t.Fatal("ConfirmSkin not inserted directly after PlayerList", err)
+	}
+	header, n := binary.Uvarint(packets[1])
+	if header != 228 {
+		t.Fatal("unexpected ConfirmSkin id", header)
+	}
+	r := protocol.NewReader(bytes.NewBuffer(packets[1][n:]), 0, true)
+	var count uint32
+	r.Varuint32(&count)
+	if count != 2 {
+		t.Fatal("ConfirmSkin player count", count)
+	}
+	ids := []uuid.UUID{}
+	for range count {
+		var confirmed bool
+		var player uuid.UUID
+		var extra []byte
+		r.Bool(&confirmed)
+		r.UUID(&player)
+		r.ByteSlice(&extra)
+		if !confirmed || len(extra) != 0 {
+			t.Fatal("ConfirmSkin entry not confirmed")
+		}
+		ids = append(ids, player)
+	}
+	var uids, tail [2]string
+	for i := range uids {
+		r.String(&uids[i])
+	}
+	for i := range tail {
+		r.String(&tail[i])
+	}
+	if ids[0] != id || ids[1] != foreign || uids[0] != "1261597877" || uids[1] != "" {
+		t.Fatal("ConfirmSkin players or uids incorrect", ids, uids)
 	}
 }

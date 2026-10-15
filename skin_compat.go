@@ -105,18 +105,6 @@ func portableClassicSkin(skin *protocol.Skin) (bool, error) {
 	return true, nil
 }
 
-// NetEase receives the source's classic-skin classification. Clearing it here
-// would change a premium classic skin into an imported skin on the recipient.
-// BDS login normalization still removes foreign catalogue identifiers.
-func neteaseClassicSkin(skin *protocol.Skin) (bool, error) {
-	premium := skin.PremiumSkin
-	changed, err := portableClassicSkin(skin)
-	if changed {
-		skin.PremiumSkin = premium
-	}
-	return changed, err
-}
-
 // BDS 1.21.124 drops 256x256 skins from its player list entirely. Downsample
 // the texture before login/skin updates so BDS retains it for all recipients.
 // Geometry texture_width/height and UVs stay together in their original units:
@@ -220,21 +208,15 @@ func patchPlayerSkin860(pk []byte, toNetEase bool) (result []byte, err error) {
 		return nil, errors.New("玩家换肤包包含未知字段")
 	}
 	if toNetEase {
-		// This flag controls rendering, not account authentication. BDS resets
+		// Trusted controls rendering, not account authentication. BDS resets
 		// it for offline custom skins even when the client supplied a valid one.
-		if len(update.Skin.SkinData) > 0 {
-			update.Skin.Trusted = true
-		}
+		_, err = neteaseRecipientSkin(update.UUID, "", &update.Skin)
 	} else {
+		updateNetEaseSkin(update.UUID, update.Skin)
 		update.Skin.SkinImageWidth, update.Skin.SkinImageHeight, update.Skin.SkinData, err = bedrockSkinPixels(update.Skin.SkinImageWidth, update.Skin.SkinImageHeight, update.Skin.SkinData)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			_, err = portableClassicSkin(&update.Skin)
 		}
-	}
-	if toNetEase {
-		_, err = neteaseClassicSkin(&update.Skin)
-	} else {
-		_, err = portableClassicSkin(&update.Skin)
 	}
 	if err != nil {
 		return nil, err

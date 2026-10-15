@@ -254,18 +254,18 @@ func testBDSWorldExchangeOptions(t *testing.T, cache, webRTC, chat bool, skinOve
 							if entry.UUID != loginUUID {
 								continue
 							}
-							if !strings.HasPrefix(entry.Skin.SkinID, "LobbyKeeper_") || entry.Skin.PremiumSkin || entry.Skin.PlayFabID != "" || !entry.Skin.OverrideAppearance {
-								t.Fatal("portable custom skin identity or catalog flags did not survive BDS")
+							// BDS relays the downsampled LobbyKeeper skin; a NetEase recipient
+							// must instead receive the player's original login skin.
+							original, _ := override["SkinId"].(string)
+							if original == "" {
+								original = "KeeperTest"
+							}
+							if entry.Skin.SkinID != original || strings.HasPrefix(entry.Skin.SkinID, "LobbyKeeper_") || entry.Skin.PremiumSkin != (override["PremiumSkin"] == true) || !entry.Skin.Trusted {
+								t.Fatal("NetEase recipient did not receive the original login skin identity")
 							}
 							width := uint32(override["SkinImageWidth"].(int))
-							if width > 128 {
-								width = 128
-								if len(entry.Skin.SkinGeometry) < 100 || len(entry.Skin.SkinResourcePatch) == 0 {
-									t.Fatal("BDS discarded converted high-resolution model")
-								}
-							}
-							if entry.Skin.SkinImageWidth != width || entry.Skin.SkinImageHeight != width || len(entry.Skin.SkinData) != int(width*width*4) || !entry.Skin.Trusted {
-								t.Fatal("BDS skin dimensions/texture/trust did not survive bridge")
+							if entry.Skin.SkinImageWidth != width || entry.Skin.SkinImageHeight != width || len(entry.Skin.SkinData) != int(width*width*4) || len(entry.Skin.SkinResourcePatch) == 0 {
+								t.Fatal("original skin dimensions/texture/model not restored")
 							}
 							skinVerified = true
 						}
