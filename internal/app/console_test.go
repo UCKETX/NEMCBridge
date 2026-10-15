@@ -41,7 +41,7 @@ func TestConsoleLANAccessAndOrigin(t *testing.T) {
 	}
 	cfg := config.Default()
 	cfg.WebPort = listener.Addr().(*net.TCPAddr).Port
-	m := newManager(t.TempDir(), cfg, "", log.New(io.Discard, "", 0))
+	m := newManager(t.TempDir(), cfg, nil, log.New(io.Discard, "", 0))
 	handler := makeHandler(m, testConsoleAuth(t))
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: time.Second}
 	go func() { _ = server.Serve(listener) }()

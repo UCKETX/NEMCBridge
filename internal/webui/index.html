@@ -31,6 +31,7 @@
         <span class="eyebrow">本地联机房间号</span>
         <div id="room-id" class="room-number">—</div>
         <p id="room-note">启动房主机器人后，房间号会显示在这里。</p>
+        <div id="room-list" class="room-list" hidden></div>
       </div>
       <div class="room-actions">
         <button id="start" class="primary" type="button"><svg class="btn-glyph" viewBox="0 0 4 7" width="8" height="14" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h1v7H0zm1 1h1v5H1zm1 1h1v3H2zm1 1h1v1H3z"/></svg>启动房间</button>
@@ -48,7 +49,7 @@
       <article class="stat">
         <div class="stat-head"><svg class="px" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="0" width="8" height="1" fill="#4a2f1b"/><rect x="0" y="1" width="8" height="1" fill="#4a2f1b"/><rect x="0" y="2" width="1" height="1" fill="#4a2f1b"/><rect x="1" y="2" width="6" height="1" fill="#e0a982"/><rect x="7" y="2" width="1" height="1" fill="#4a2f1b"/><rect x="0" y="3" width="1" height="1" fill="#e0a982"/><rect x="1" y="3" width="1" height="1" fill="#c8875e"/><rect x="2" y="3" width="4" height="1" fill="#e0a982"/><rect x="6" y="3" width="1" height="1" fill="#c8875e"/><rect x="7" y="3" width="1" height="1" fill="#e0a982"/><rect x="0" y="4" width="1" height="1" fill="#e0a982"/><rect x="1" y="4" width="1" height="1" fill="#ffffff"/><rect x="2" y="4" width="1" height="1" fill="#3b5bdb"/><rect x="3" y="4" width="2" height="1" fill="#e0a982"/><rect x="5" y="4" width="1" height="1" fill="#3b5bdb"/><rect x="6" y="4" width="1" height="1" fill="#ffffff"/><rect x="7" y="4" width="1" height="1" fill="#e0a982"/><rect x="0" y="5" width="3" height="1" fill="#e0a982"/><rect x="3" y="5" width="2" height="1" fill="#4a2f1b"/><rect x="5" y="5" width="3" height="1" fill="#e0a982"/><rect x="0" y="6" width="2" height="1" fill="#e0a982"/><rect x="2" y="6" width="1" height="1" fill="#4a2f1b"/><rect x="3" y="6" width="2" height="1" fill="#e0a982"/><rect x="5" y="6" width="1" height="1" fill="#4a2f1b"/><rect x="6" y="6" width="2" height="1" fill="#e0a982"/><rect x="0" y="7" width="2" height="1" fill="#e0a982"/><rect x="2" y="7" width="4" height="1" fill="#4a2f1b"/><rect x="6" y="7" width="2" height="1" fill="#e0a982"/></svg><span>在线玩家</span></div>
         <strong id="players">0</strong>
-        <small>房主机器人持续连接</small>
+        <small id="players-note">房主机器人持续连接</small>
       </article>
       <article class="stat">
         <div class="stat-head"><svg class="px" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="0" width="4" height="1" fill="#9ca3af"/><rect x="1" y="1" width="1" height="1" fill="#9ca3af"/><rect x="6" y="1" width="1" height="1" fill="#9ca3af"/><rect x="1" y="2" width="1" height="1" fill="#9ca3af"/><rect x="6" y="2" width="1" height="1" fill="#9ca3af"/><rect x="0" y="3" width="8" height="1" fill="#fde047"/><rect x="0" y="4" width="1" height="1" fill="#fde047"/><rect x="1" y="4" width="6" height="1" fill="#f59e0b"/><rect x="7" y="4" width="1" height="1" fill="#fde047"/><rect x="0" y="5" width="1" height="1" fill="#fde047"/><rect x="1" y="5" width="2" height="1" fill="#f59e0b"/><rect x="3" y="5" width="2" height="1" fill="#1e1b2e"/><rect x="5" y="5" width="2" height="1" fill="#f59e0b"/><rect x="7" y="5" width="1" height="1" fill="#fde047"/><rect x="0" y="6" width="1" height="1" fill="#fde047"/><rect x="1" y="6" width="3" height="1" fill="#f59e0b"/><rect x="4" y="6" width="1" height="1" fill="#1e1b2e"/><rect x="5" y="6" width="2" height="1" fill="#f59e0b"/><rect x="7" y="6" width="1" height="1" fill="#fde047"/><rect x="0" y="7" width="8" height="1" fill="#fde047"/></svg><span>房主账号</span></div>
@@ -74,7 +75,12 @@
           <fieldset>
             <legend>连接</legend>
             <label>验证服务器<input id="auth-server" type="url" required></label>
-            <label><span class="field-label">机器人令牌 <span id="token-note" class="badge"></span></span><input id="token" type="password" autocomplete="off" placeholder="留空保留当前令牌"></label>
+            <div class="tokens-field">
+              <span class="field-label">机器人令牌 <small>每个房间一个，最多 8 个</small></span>
+              <div id="token-list" class="token-list"></div>
+              <button id="add-room" class="ghost add-room" type="button">＋ 添加房间</button>
+              <p class="hint">每个房间需要一个在 FGAuth 中指定了不同网易账号的令牌，同一账号同时开两个房间会互相挤下线。所有房间转发到同一台服务器。</p>
+            </div>
             <div class="two">
               <label>本地 Bedrock 地址<input id="server" required placeholder="127.0.0.1:19132"></label>
               <label>网易房间内核版本<input id="room-game-version" required placeholder="1.21.120.0"></label>

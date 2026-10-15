@@ -82,25 +82,33 @@ func runMain() error {
 		if err != nil {
 			return err
 		}
-		token := strings.TrimSpace(string(b))
-		if token == "" {
+		tokens := parseTokens(string(b))
+		if len(tokens) == 0 {
 			return fmt.Errorf("令牌为空")
 		}
-		if err = secret.Save(filepath.Join(dir, "secrets.dat"), token); err != nil {
+		if len(tokens) > maxRooms {
+			return fmt.Errorf("最多同时开 %d 个房间", maxRooms)
+		}
+		if err = saveTokens(filepath.Join(dir, "secrets.dat"), tokens); err != nil {
 			return err
 		}
-		fmt.Println("令牌已保存：" + secret.StorageDescription())
+		fmt.Printf("已保存 %d 个房间的令牌：%s\n", len(tokens), secret.StorageDescription())
 		return nil
 	}
-	token := os.Getenv("NEMCBRIDGE_TOKEN")
-	if token == "" {
-		token = os.Getenv("LOBBYKEEPER_TOKEN") // Compatibility with existing deployments.
+	// One token per room; whitespace separates several.
+	tokens := parseTokens(os.Getenv("NEMCBRIDGE_TOKEN"))
+	if len(tokens) == 0 {
+		tokens = parseTokens(os.Getenv("LOBBYKEEPER_TOKEN")) // Compatibility with existing deployments.
 	}
-	if token == "" {
-		token, err = secret.Load(filepath.Join(dir, "secrets.dat"))
+	if len(tokens) == 0 {
+		stored, err := secret.Load(filepath.Join(dir, "secrets.dat"))
 		if err != nil {
 			return fmt.Errorf("无法读取令牌，请检查当前用户权限或重新设置: %w", err)
 		}
+		tokens = parseTokens(stored)
+	}
+	if len(tokens) > maxRooms {
+		return fmt.Errorf("最多同时开 %d 个房间，当前提供了 %d 个令牌", maxRooms, len(tokens))
 	}
 	logger, logFile, err := openLogger(dir)
 	if err != nil {
@@ -108,11 +116,16 @@ func runMain() error {
 	}
 	defer logFile.Close()
 	if *check {
-		lease, err := session.Acquire(token)
-		if err != nil {
-			return err
+		if len(tokens) == 0 {
+			return fmt.Errorf("请先设置机器人令牌")
 		}
-		defer lease.Close()
+		for _, token := range tokens {
+			lease, err := session.Acquire(token)
+			if err != nil {
+				return err
+			}
+			defer lease.Close()
+		}
 		if err := session.RejectRunningRoom(context.Background(), cfg.WebPort); err != nil {
 			return err
 		}
@@ -121,16 +134,24 @@ func runMain() error {
 			return fmt.Errorf("本地 Bedrock 服务器不可达")
 		}
 		fmt.Println("本地服务器在线，版本:", version)
-		ctx, cancel := context.WithTimeout(context.Background(), 75*time.Second)
-		defer cancel()
-		info, err := auth.FetchCreate(ctx, cfg, token)
-		if err != nil {
-			return err
+		accounts := map[string]int{}
+		for i, token := range tokens {
+			ctx, cancel := context.WithTimeout(context.Background(), 75*time.Second)
+			info, err := auth.FetchCreate(ctx, cfg, token)
+			cancel()
+			if err != nil {
+				return fmt.Errorf("%s%w", roomLabel(i, len(tokens)), err)
+			}
+			fmt.Printf("%sFGAuth 鉴权通过；账号 %s；房间协议 %d；转发凭据校验通过\n", roomLabel(i, len(tokens)), info.UserPlayerName, info.ProtocolID)
+			// Two rooms on one account would knock each other offline.
+			if prev, dup := accounts[info.UserPlayerName]; dup {
+				return fmt.Errorf("房间 %d 与房间 %d 使用了同一个网易账号，请在 FGAuth 为每个房间创建指定不同账号的令牌", prev+1, i+1)
+			}
+			accounts[info.UserPlayerName] = i
 		}
-		fmt.Printf("FGAuth 鉴权通过；账号 %s；房间协议 %d；转发凭据校验通过\n", info.UserPlayerName, info.ProtocolID)
 		return nil
 	}
-	manager := newManager(dir, cfg, token, logger)
+	manager := newManager(dir, cfg, tokens, logger)
 	listener, err := net.Listen("tcp4", fmt.Sprintf("0.0.0.0:%d", cfg.WebPort))
 	if err != nil {
 		return fmt.Errorf("控制台端口被占用: %w", err)
@@ -249,6 +270,7 @@ func makeHandler(m *Manager, admin *consoleAuth) http.Handler {
 		var body struct {
 			Config config.Config `json:"config"`
 			Token  *string       `json:"token"`
+			Rooms  *[]roomToken  `json:"rooms"`
 		}
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384))
 		decoder.DisallowUnknownFields()
@@ -256,7 +278,7 @@ func makeHandler(m *Manager, admin *consoleAuth) http.Handler {
 			http.Error(w, "配置 JSON 无效", 400)
 			return
 		}
-		if err := m.configure(body.Config, body.Token); err != nil {
+		if err := m.configure(body.Config, body.Token, body.Rooms); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}

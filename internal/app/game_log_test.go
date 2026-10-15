@@ -41,7 +41,7 @@ func TestGameLogBroadcastsAndPrimaryHandoff(t *testing.T) {
 func TestDebugLogsDefaultOffLiveToggleAndPersistence(t *testing.T) {
 	var output bytes.Buffer
 	dir := t.TempDir()
-	m := newManager(dir, config.Default(), "test-secret-token", log.New(&output, "", 0))
+	m := newManager(dir, config.Default(), []string{"test-secret-token"}, log.New(&output, "", 0))
 	m.event("房间已上线")
 	m.debug("世界数据包：PacketID=1")
 	if len(m.snapshot().Events) != 1 || strings.Contains(output.String(), "PacketID") {
@@ -70,7 +70,7 @@ func TestDebugLogsDefaultOffLiveToggleAndPersistence(t *testing.T) {
 }
 
 func TestDebugAPIWorksWhileRoomIsRunning(t *testing.T) {
-	m := newManager(t.TempDir(), config.Default(), "", log.New(&bytes.Buffer{}, "", 0))
+	m := newManager(t.TempDir(), config.Default(), nil, log.New(&bytes.Buffer{}, "", 0))
 	m.cancel = func() {} // Other configuration changes are locked while running.
 	h := makeHandler(m, testConsoleAuth(t))
 	if w := testConsoleRequest(h, http.MethodPost, "/api/debug", `{"enabled":true}`, nil); w.Code != http.StatusUnauthorized {

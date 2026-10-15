@@ -71,7 +71,7 @@ func TestAdminCredentialPersistenceAndReset(t *testing.T) {
 }
 
 func TestConsoleAuthenticationLifecycle(t *testing.T) {
-	m := newManager(t.TempDir(), config.Default(), "", log.New(io.Discard, "", 0))
+	m := newManager(t.TempDir(), config.Default(), nil, log.New(io.Discard, "", 0))
 	a := testConsoleAuth(t)
 	handler := makeHandler(m, a)
 	for _, path := range []string{"/api/status", "/api/start", "/api/stop", "/api/config", "/api/exit", "/api/logout"} {
@@ -122,7 +122,7 @@ func TestConsoleAuthenticationLifecycle(t *testing.T) {
 }
 
 func TestConsoleLoginOriginAndRateLimit(t *testing.T) {
-	m := newManager(t.TempDir(), config.Default(), "", log.New(io.Discard, "", 0))
+	m := newManager(t.TempDir(), config.Default(), nil, log.New(io.Discard, "", 0))
 	a := testConsoleAuth(t)
 	handler := makeHandler(m, a)
 	body, _ := json.Marshal(map[string]string{"username": "admin", "password": "test-admin-password"})
