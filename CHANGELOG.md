@@ -2,7 +2,7 @@
 
 详细发行说明见 [Releases](https://github.com/UCKETX/NEMCBridge/releases)。
 
-## 未发布
+## v0.1.1 — 2026-10-15
 
 - 添加蓝青渐变终端横幅，显示版本、平台和访问地址；支持 `NO_COLOR` 关闭颜色。
 - 管理页面添加管理员登录、退出、12 小时会话及登录限速。
