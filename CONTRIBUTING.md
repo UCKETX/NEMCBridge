@@ -46,7 +46,7 @@ Remove-Item Env:LOBBYKEEPER_BDS_TEST
 
 没有设置该变量时，相关 BDS 测试会跳过；本地 WebRTC 及普通单元测试仍按各自条件运行。资源包下载测试另使用 `LOBBYKEEPER_BDS_RP_TEST`，需要单独配置带测试资源包的 BDS。通过协议测试后，仍应使用真实客户端确认游戏表现。
 
-Windows 本地辅助脚本：`scripts/download-bedrock.py` 下载指定版本的官方测试服，`scripts/start-bedrock.ps1` 将其配置为创造、和平和离线模式。它们用于测试，会修改测试服的 `server.properties`。根目录的启动/停止 CMD 使用 `current/` 数据目录和 18323 控制台端口；发布版直接启动程序默认使用 18321。
+Windows 本地辅助脚本：`scripts/download-bedrock.py` 下载指定版本的官方测试服，`scripts/start-bedrock.ps1` 将其配置为创造、和平和离线模式。它们用于测试，会修改测试服的 `server.properties`。开发环境可直接调用 `scripts/start.ps1` 和 `scripts/stop.ps1`，使用 `current/` 数据目录和 18323 控制台端口；发布版直接启动程序默认使用 18321。
 
 ## 提交要求
 
