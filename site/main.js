@@ -289,9 +289,10 @@
     const log = $("[data-log]", mock);
     const feed = [
       ["Alex 加入了游戏", 1], ["<竹林小筑> 门口集合！", 0], ["<Steve> on my way", 0],
-      ["山海 加入了游戏", 1], ["<山海> 我带了钻石镐 ⛏️", 0], ["Alex 被苦力怕炸死了", 0],
-      ["<Alex> creeper... 😭", 0], ["山海 离开了游戏", -1], ["好友申请已自动同意：夜航船", 0],
-      ["夜航船 加入了游戏", 1], ["<夜航船> 你好呀", 0], ["Alex 离开了游戏", -1],
+      ["山海 加入了游戏", 1], ["<山海> 我带了钻石镐 ⛏️", 0], ["[DEBUG] 区块批次 214 KiB", 0],
+      ["Alex 被苦力怕炸死了", 0], ["<Alex> creeper... 😭", 0], ["山海 离开了游戏", -1],
+      ["好友申请已自动同意：夜航船", 0], ["夜航船 加入了游戏", 1], ["<夜航船> 你好呀", 0],
+      ["RakNet 连接超时，正在重试", 0], ["Alex 离开了游戏", -1],
     ];
     let i = 0;
     const pad = (n) => String(n).padStart(2, "0");
@@ -301,7 +302,8 @@
     setInterval(() => {
       secs++;
       if (!visible) return;
-      uptime.textContent = `${Math.floor(secs / 3600)}:${pad(Math.floor(secs / 60) % 60)}:${pad(secs % 60)}`;
+      // Same format as the real console.
+      uptime.textContent = `${Math.floor(secs / 3600)}时 ${Math.floor(secs % 3600 / 60)}分`;
     }, 1000);
     setInterval(() => {
       if (!visible || document.hidden) return;
@@ -309,9 +311,11 @@
       players = Math.max(1, Math.min(9, players + delta));
       count.textContent = players;
       const p = document.createElement("p");
+      if (text.startsWith("[DEBUG]")) p.className = "is-debug";
+      else if (/失败|错误|断开|超时/.test(text)) p.className = "is-warn";
       p.innerHTML = `<time>${clock()}</time>${esc(text)}`;
       log.appendChild(p);
-      while (log.children.length > 2) log.firstElementChild.remove();
+      while (log.children.length > 3) log.firstElementChild.remove();
     }, 2600);
   }
 

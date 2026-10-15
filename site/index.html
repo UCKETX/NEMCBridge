@@ -168,22 +168,30 @@
             <p>带管理员登录的 Web 控制台：配置验证服务器、令牌、后端和房间参数，查看状态与运行日志。</p>
             <div class="mock-console" aria-hidden="true">
               <div class="mc-bar"><i></i><i></i><i></i><span>127.0.0.1:18321</span></div>
+              <div class="mc-top">
+                <span class="mc-brand"><img src="assets/favicon.svg" alt="" width="14" height="14"><span>NEMC<b>Bridge</b></span><small>控制台</small></span>
+                <span class="mc-pill"><i></i>房间在线</span>
+              </div>
               <div class="mc-body">
                 <div class="mc-hero">
                   <div>
                     <small>本地联机房间号</small>
-                    <strong class="mc-room" data-room>482071</strong>
+                    <strong class="mc-room" data-room>48207153</strong>
                   </div>
-                  <span class="mc-btn">复制房间号</span>
+                  <div class="mc-actions"><span>停止房间</span><span>复制房间号</span></div>
                 </div>
                 <div class="mc-stats">
-                  <div><small>本地服务器</small><b>在线</b></div>
-                  <div><small>在线玩家</small><b data-players>4</b></div>
-                  <div><small>在线时间</small><b data-uptime>3:12:45</b></div>
+                  <div><small><i class="px-icon" data-icon="grass"></i>本地服务器</small><b class="mc-ok">在线</b></div>
+                  <div><small><i class="px-icon" data-icon="player-b"></i>在线玩家</small><b data-players>4</b></div>
+                  <div><small><i class="px-icon" data-icon="lantern"></i>在线时间</small><b data-uptime>3时 12分</b></div>
                 </div>
-                <div class="mc-log" data-log>
-                  <p><time>21:04:12</time>竹林小筑 加入了游戏</p>
-                  <p><time>21:04:30</time>&lt;Steve&gt; welcome!</p>
+                <div class="mc-log">
+                  <div class="mc-log-bar"><i></i><i></i><i></i><span>logs/keeper.log</span></div>
+                  <div class="mc-log-body" data-log>
+                    <p><time>21:04:12</time>竹林小筑 加入了游戏</p>
+                    <p><time>21:04:30</time>&lt;Steve&gt; welcome!</p>
+                    <p class="is-debug"><time>21:05:02</time>[DEBUG] 后端权限：member</p>
+                  </div>
                 </div>
               </div>
             </div>
