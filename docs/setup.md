@@ -34,7 +34,7 @@ block-network-ids-are-hashes=true
 | `upstream` | BDS 地址和 UDP 端口，默认 `127.0.0.1:19132` |
 | `room_name` / `room_password` | 房间名称与密码 |
 | `room_game_version` | 网易房间内核版本，当前适配 `1.21.120.0` |
-| `max_players` | 房间人数，2–40 |
+| `max_players` | 房间总人数，2–10，包含房主机器人；10 人房间最多接入 9 名网易玩家 |
 | `friends_only` / `allow_pvp` | 好友加入与 PvP 设置 |
 | `auto_accept_friends` | 自动同意机器人账号收到的好友申请，默认 `true` |
 | `auto_start` | 程序启动时自动开房 |

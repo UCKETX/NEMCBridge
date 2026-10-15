@@ -48,8 +48,8 @@ func (c Config) Validate() error {
 	if err != nil || p < 1 || p > 65535 {
 		return fmt.Errorf("服务器端口无效")
 	}
-	if c.MaxPlayers < 2 || c.MaxPlayers > 40 {
-		return fmt.Errorf("房间人数必须为 2–40")
+	if c.MaxPlayers < 2 || c.MaxPlayers > 10 {
+		return fmt.Errorf("房间总人数必须为 2–10（含房主机器人）")
 	}
 	if len([]rune(c.RoomName)) < 1 || len([]rune(c.RoomName)) > 40 {
 		return fmt.Errorf("房间名称必须为 1–40 字")
@@ -91,6 +91,12 @@ func Load(path string) (Config, error) {
 	}
 	if err = json.Unmarshal(b, &c); err != nil {
 		return c, err
+	}
+	// Older versions allowed requesting up to 40 slots without verifying that
+	// NetEase would grant them. Keep those installations usable with 10 slots.
+	if c.MaxPlayers > 10 && c.MaxPlayers <= 40 {
+		c.MaxPlayers = 10
+		return c, Save(path, c)
 	}
 	return c, c.Validate()
 }
