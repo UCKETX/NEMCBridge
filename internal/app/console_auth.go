@@ -112,7 +112,7 @@ func (a *consoleAuth) authenticated(r *http.Request) bool {
 func (a *consoleAuth) protect(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/login", "/login.js", "/style.css":
+		case "/api/login", "/login.js", "/style.css", "/favicon.svg":
 			next.ServeHTTP(w, r)
 			return
 		case "/login":

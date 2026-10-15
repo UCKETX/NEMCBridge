@@ -1,10 +1,132 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NEMCBridge 控制台</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
-<body><main><header><div><small>NEMCBRIDGE</small><h1>让玩家在同一世界相遇<span class="dot"></span></h1><p>网易本地联机 · Bedrock 服务器转发</p></div><div class="header-tools"><div class="chip" id="phase">正在连接控制台</div><button id="logout" type="button">退出登录</button></div></header>
-<section class="hero"><div><label>本地联机房间号</label><div id="room-id" class="room-number">—</div><p id="room-note">启动房主机器人后，房间号会显示在这里。</p></div><div class="actions"><button id="start" class="primary">启动房间</button><button id="stop" disabled>停止房间</button><button id="copy" disabled>复制房间号</button></div></section>
-<div class="stats"><article><label>本地服务器</label><strong id="upstream">等待检查</strong><small id="version">—</small></article><article><label>在线玩家</label><strong id="players">0</strong><small>房主机器人持续连接</small></article><article><label>房主账号</label><strong id="account">—</strong><small id="protocol">等待鉴权</small></article><article><label>在线时间</label><strong id="uptime">—</strong><small id="retry">自动断线重连已启用</small></article></div>
-<div id="notice" role="status"></div><div class="columns"><section class="panel"><div class="section-title"><h2>房间设置</h2><span>停止后可修改</span></div><form id="config">
-<label>验证服务器<input id="auth-server" type="url" required></label><label>机器人令牌 <span id="token-note"></span><input id="token" type="password" autocomplete="off" placeholder="留空保留当前令牌"></label>
-<label>本地 Bedrock 地址<input id="server" required placeholder="127.0.0.1:19132"></label><label>网易房间内核版本<input id="room-game-version" required placeholder="1.21.120.0"></label><label>房间名称<input id="room-name" required maxlength="40"></label><div class="two"><label>房间密码<input id="password" type="password" autocomplete="off"></label><label>房间总人数（含机器人）<input id="max-players" type="number" min="2" max="10" required></label></div>
-<p class="hint">网易房间最多 10 人，机器人占 1 个名额，最多接入 9 名网易玩家；国际版直连人数由后端限制。</p><div class="checks"><label><input id="friends" type="checkbox">仅好友可见</label><label><input id="auto-friends" type="checkbox">自动同意好友申请</label><label><input id="pvp" type="checkbox">允许 PvP</label><label><input id="auto" type="checkbox">程序启动时自动开房</label></div><button id="save" type="submit">保存设置</button><p class="hint">Windows 使用用户密钥加密令牌；Linux/macOS 以仅当前用户可读写的文件权限保存。自定义房名可能需要网易 VIP；可使用“来和我一起玩吧！”。</p></form></section>
-<section class="panel"><div class="section-title"><h2>运行日志</h2><div class="log-tools"><span>最近 120 条</span><label><input id="debug" type="checkbox">Debug 模式</label></div></div><div id="events" class="events"></div><div class="guide"><h3>如何加入</h3><p>在网易我的世界中打开“本地联机”，搜索上方房间号。房间里的世界由本地 Bedrock 服务器提供。</p><p>电脑保持开机，保留挂服机与 Bedrock 服务器进程，即可持续托管。</p></div></section></div><footer>控制台支持局域网访问 · 请仅在可信网络使用 · 运行日志保存在 logs 文件夹</footer></main></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NEMCBridge 控制台</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body class="console-page" data-phase="connecting">
+  <div class="sky" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">
+        <svg class="portal" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"> <rect width="16" height="16" fill="#1a1029"/> <path fill="#2b1d45" d="M2 1h12v14H2z"/> <path fill="#120a1f" d="M3 2h10v12H3z"/> <path fill="#7c3aed" d="M4 3h8v10H4z"/> <path fill="#a855f7" d="M5 4h2v1H5zm3 1h3v1H8zM5 7h3v1H5zm4 1h2v1H9zM6 10h3v1H6zm4 1h1v1h-1z"/> <path fill="#e9d5ff" d="M6 5h1v1H6zm3 2h1v1H9zm-3 4h1v1H6z"/> <path fill="#4c2c7a" d="M2 1h1v1H2zm11 0h1v1h-1zM2 14h1v1H2zm11 0h1v1h-1z"/> </svg>
+        <span>NEMC<b>Bridge</b></span>
+        <small>控制台</small>
+      </a>
+      <div class="top-tools">
+        <div class="status-pill" role="status"><i class="status-dot" aria-hidden="true"></i><span id="phase">正在连接控制台</span></div>
+        <button id="logout" class="ghost" type="button">退出登录</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="console">
+    <section class="room-card">
+      <div class="room-info">
+        <span class="eyebrow">本地联机房间号</span>
+        <div id="room-id" class="room-number">—</div>
+        <p id="room-note">启动房主机器人后，房间号会显示在这里。</p>
+      </div>
+      <div class="room-actions">
+        <button id="start" class="primary" type="button"><span class="btn-glyph" aria-hidden="true">▶</span>启动房间</button>
+        <button id="stop" class="ghost danger" type="button" disabled>停止房间</button>
+        <button id="copy" class="ghost" type="button" disabled><span data-label>复制房间号</span></button>
+      </div>
+    </section>
+
+    <div class="stats">
+      <article class="stat" data-stat="upstream">
+        <div class="stat-head"><svg class="px" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="0" width="8" height="1" fill="#5fd35f"/><rect x="0" y="1" width="1" height="1" fill="#5fd35f"/><rect x="1" y="1" width="1" height="1" fill="#3a9a3a"/><rect x="2" y="1" width="3" height="1" fill="#5fd35f"/><rect x="5" y="1" width="1" height="1" fill="#3a9a3a"/><rect x="6" y="1" width="2" height="1" fill="#5fd35f"/><rect x="0" y="2" width="1" height="1" fill="#3a9a3a"/><rect x="1" y="2" width="1" height="1" fill="#8b5a2b"/><rect x="2" y="2" width="1" height="1" fill="#3a9a3a"/><rect x="3" y="2" width="1" height="1" fill="#5fd35f"/><rect x="4" y="2" width="1" height="1" fill="#8b5a2b"/><rect x="5" y="2" width="1" height="1" fill="#3a9a3a"/><rect x="6" y="2" width="1" height="1" fill="#5fd35f"/><rect x="7" y="2" width="1" height="1" fill="#3a9a3a"/><rect x="0" y="3" width="2" height="1" fill="#8b5a2b"/><rect x="2" y="3" width="1" height="1" fill="#5e3a1a"/><rect x="3" y="3" width="2" height="1" fill="#8b5a2b"/><rect x="5" y="3" width="1" height="1" fill="#3a9a3a"/><rect x="6" y="3" width="2" height="1" fill="#8b5a2b"/><rect x="0" y="4" width="1" height="1" fill="#8b5a2b"/><rect x="1" y="4" width="1" height="1" fill="#5e3a1a"/><rect x="2" y="4" width="5" height="1" fill="#8b5a2b"/><rect x="7" y="4" width="1" height="1" fill="#5e3a1a"/><rect x="0" y="5" width="4" height="1" fill="#8b5a2b"/><rect x="4" y="5" width="1" height="1" fill="#5e3a1a"/><rect x="5" y="5" width="3" height="1" fill="#8b5a2b"/><rect x="0" y="6" width="1" height="1" fill="#8b5a2b"/><rect x="1" y="6" width="1" height="1" fill="#5e3a1a"/><rect x="2" y="6" width="6" height="1" fill="#8b5a2b"/><rect x="0" y="7" width="6" height="1" fill="#8b5a2b"/><rect x="6" y="7" width="1" height="1" fill="#5e3a1a"/><rect x="7" y="7" width="1" height="1" fill="#8b5a2b"/></svg><span>本地服务器</span></div>
+        <strong id="upstream">等待检查</strong>
+        <small id="version">—</small>
+      </article>
+      <article class="stat">
+        <div class="stat-head"><svg class="px" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="0" width="8" height="1" fill="#4a2f1b"/><rect x="0" y="1" width="8" height="1" fill="#4a2f1b"/><rect x="0" y="2" width="1" height="1" fill="#4a2f1b"/><rect x="1" y="2" width="6" height="1" fill="#e0a982"/><rect x="7" y="2" width="1" height="1" fill="#4a2f1b"/><rect x="0" y="3" width="1" height="1" fill="#e0a982"/><rect x="1" y="3" width="1" height="1" fill="#c8875e"/><rect x="2" y="3" width="4" height="1" fill="#e0a982"/><rect x="6" y="3" width="1" height="1" fill="#c8875e"/><rect x="7" y="3" width="1" height="1" fill="#e0a982"/><rect x="0" y="4" width="1" height="1" fill="#e0a982"/><rect x="1" y="4" width="1" height="1" fill="#ffffff"/><rect x="2" y="4" width="1" height="1" fill="#3b5bdb"/><rect x="3" y="4" width="2" height="1" fill="#e0a982"/><rect x="5" y="4" width="1" height="1" fill="#3b5bdb"/><rect x="6" y="4" width="1" height="1" fill="#ffffff"/><rect x="7" y="4" width="1" height="1" fill="#e0a982"/><rect x="0" y="5" width="3" height="1" fill="#e0a982"/><rect x="3" y="5" width="2" height="1" fill="#4a2f1b"/><rect x="5" y="5" width="3" height="1" fill="#e0a982"/><rect x="0" y="6" width="2" height="1" fill="#e0a982"/><rect x="2" y="6" width="1" height="1" fill="#4a2f1b"/><rect x="3" y="6" width="2" height="1" fill="#e0a982"/><rect x="5" y="6" width="1" height="1" fill="#4a2f1b"/><rect x="6" y="6" width="2" height="1" fill="#e0a982"/><rect x="0" y="7" width="2" height="1" fill="#e0a982"/><rect x="2" y="7" width="4" height="1" fill="#4a2f1b"/><rect x="6" y="7" width="2" height="1" fill="#e0a982"/></svg><span>在线玩家</span></div>
+        <strong id="players">0</strong>
+        <small>房主机器人持续连接</small>
+      </article>
+      <article class="stat">
+        <div class="stat-head"><svg class="px" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="0" width="4" height="1" fill="#9ca3af"/><rect x="1" y="1" width="1" height="1" fill="#9ca3af"/><rect x="6" y="1" width="1" height="1" fill="#9ca3af"/><rect x="1" y="2" width="1" height="1" fill="#9ca3af"/><rect x="6" y="2" width="1" height="1" fill="#9ca3af"/><rect x="0" y="3" width="8" height="1" fill="#fde047"/><rect x="0" y="4" width="1" height="1" fill="#fde047"/><rect x="1" y="4" width="6" height="1" fill="#f59e0b"/><rect x="7" y="4" width="1" height="1" fill="#fde047"/><rect x="0" y="5" width="1" height="1" fill="#fde047"/><rect x="1" y="5" width="2" height="1" fill="#f59e0b"/><rect x="3" y="5" width="2" height="1" fill="#1e1b2e"/><rect x="5" y="5" width="2" height="1" fill="#f59e0b"/><rect x="7" y="5" width="1" height="1" fill="#fde047"/><rect x="0" y="6" width="1" height="1" fill="#fde047"/><rect x="1" y="6" width="3" height="1" fill="#f59e0b"/><rect x="4" y="6" width="1" height="1" fill="#1e1b2e"/><rect x="5" y="6" width="2" height="1" fill="#f59e0b"/><rect x="7" y="6" width="1" height="1" fill="#fde047"/><rect x="0" y="7" width="8" height="1" fill="#fde047"/></svg><span>房主账号</span></div>
+        <strong id="account">—</strong>
+        <small id="protocol">等待鉴权</small>
+      </article>
+      <article class="stat">
+        <div class="stat-head"><svg class="px" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><rect x="3" y="0" width="2" height="1" fill="#4b5563"/><rect x="2" y="1" width="1" height="1" fill="#4b5563"/><rect x="5" y="1" width="1" height="1" fill="#4b5563"/><rect x="1" y="2" width="6" height="1" fill="#4b5563"/><rect x="1" y="3" width="1" height="1" fill="#4b5563"/><rect x="2" y="3" width="4" height="1" fill="#fde047"/><rect x="6" y="3" width="1" height="1" fill="#4b5563"/><rect x="1" y="4" width="1" height="1" fill="#4b5563"/><rect x="2" y="4" width="1" height="1" fill="#fde047"/><rect x="3" y="4" width="1" height="1" fill="#ffffff"/><rect x="4" y="4" width="2" height="1" fill="#fde047"/><rect x="6" y="4" width="1" height="1" fill="#4b5563"/><rect x="1" y="5" width="1" height="1" fill="#4b5563"/><rect x="2" y="5" width="3" height="1" fill="#fde047"/><rect x="5" y="5" width="1" height="1" fill="#f59e0b"/><rect x="6" y="5" width="1" height="1" fill="#4b5563"/><rect x="1" y="6" width="6" height="1" fill="#4b5563"/></svg><span>在线时间</span></div>
+        <strong id="uptime">—</strong>
+        <small id="retry">自动断线重连已启用</small>
+      </article>
+    </div>
+
+    <div id="notice" role="status" hidden></div>
+
+    <div class="columns">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>房间设置</h2>
+          <span class="panel-tag">停止后可修改</span>
+        </div>
+        <form id="config">
+          <fieldset>
+            <legend>连接</legend>
+            <label>验证服务器<input id="auth-server" type="url" required></label>
+            <label><span class="field-label">机器人令牌 <span id="token-note" class="badge"></span></span><input id="token" type="password" autocomplete="off" placeholder="留空保留当前令牌"></label>
+            <div class="two">
+              <label>本地 Bedrock 地址<input id="server" required placeholder="127.0.0.1:19132"></label>
+              <label>网易房间内核版本<input id="room-game-version" required placeholder="1.21.120.0"></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>房间</legend>
+            <label>房间名称<input id="room-name" required maxlength="40"></label>
+            <div class="two">
+              <label>房间密码<input id="password" type="password" autocomplete="off"></label>
+              <label>房间总人数（含机器人）<input id="max-players" type="number" min="2" max="10" required></label>
+            </div>
+            <p class="hint">网易房间最多 10 人，机器人占 1 个名额，最多接入 9 名网易玩家；国际版直连人数由后端限制。</p>
+          </fieldset>
+          <fieldset>
+            <legend>选项</legend>
+            <div class="switches">
+              <label class="switch"><input id="friends" type="checkbox"><span>仅好友可见</span></label>
+              <label class="switch"><input id="auto-friends" type="checkbox"><span>自动同意好友申请</span></label>
+              <label class="switch"><input id="pvp" type="checkbox"><span>允许 PvP</span></label>
+              <label class="switch"><input id="auto" type="checkbox"><span>程序启动时自动开房</span></label>
+            </div>
+          </fieldset>
+          <div class="form-foot">
+            <button id="save" class="primary" type="submit">保存设置</button>
+            <p class="hint">Windows 使用用户密钥加密令牌；Linux/macOS 以仅当前用户可读写的文件权限保存。自定义房名可能需要网易 VIP；可使用“来和我一起玩吧！”。</p>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-head">
+          <h2>运行日志</h2>
+          <div class="log-tools">
+            <span class="panel-tag">最近 120 条</span>
+            <label class="switch switch-sm"><input id="debug" type="checkbox"><span>Debug 模式</span></label>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar" aria-hidden="true"><i></i><i></i><i></i><span>logs/keeper.log</span></div>
+          <div id="events" class="events" data-empty="暂无日志"></div>
+        </div>
+        <div class="guide">
+          <h3>如何加入</h3>
+          <p><span class="tag tag-ne">网易</span>在网易我的世界中打开“本地联机”，搜索上方房间号。</p>
+          <p><span class="tag tag-intl">国际版</span>添加服务器，填写 Bedrock 服务器的地址和 UDP 端口。</p>
+          <p class="hint">电脑保持开机，保留 NEMCBridge 与 Bedrock 服务器进程，即可持续托管。</p>
+        </div>
+      </section>
+    </div>
+
+    <footer>控制台支持局域网访问 · 请仅在可信网络使用 · 运行日志保存在 logs 文件夹</footer>
+  </main>
+</body>
+</html>
