@@ -2,6 +2,11 @@
 
 详细发行说明见 [Releases](https://github.com/UCKETX/NEMCBridge/releases)。
 
+## 未发布
+
+- 管理页面默认监听 `0.0.0.0`，支持局域网访问，并在启动终端输出本机及局域网地址。
+- 允许使用本机网卡 IP 管理房间，保留 Host 和同源写请求校验。
+
 ## v0.1.0 — 2026-10-15
 
 NEMCBridge 首次发行。

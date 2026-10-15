@@ -131,7 +131,7 @@ func runMain() error {
 		return nil
 	}
 	manager := newManager(dir, cfg, token, logger)
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", cfg.WebPort))
+	listener, err := net.Listen("tcp4", fmt.Sprintf("0.0.0.0:%d", cfg.WebPort))
 	if err != nil {
 		return fmt.Errorf("控制台端口被占用: %w", err)
 	}
@@ -139,7 +139,7 @@ func runMain() error {
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- server.Serve(listener) }()
 	address := fmt.Sprintf("http://127.0.0.1:%d", cfg.WebPort)
-	fmt.Println("本地联机挂服机控制台:", address)
+	printConsoleURLs(os.Stdout, cfg.WebPort, consoleIPv4Addresses())
 	if !*headless {
 		openBrowser(address)
 	}
@@ -219,12 +219,10 @@ func makeHandler(m *Manager) http.Handler {
 	})
 	assets, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServer(http.FS(assets)))
+	allowedHosts := consoleHosts(m.snapshot().Config.WebPort, consoleIPv4Addresses())
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s := m.snapshot()
-		host := fmt.Sprintf("127.0.0.1:%d", s.Config.WebPort)
-		localHost := fmt.Sprintf("localhost:%d", s.Config.WebPort)
-		if r.Host != host && r.Host != localHost {
-			http.Error(w, "只允许本机访问", 403)
+		if !allowedHosts[r.Host] {
+			http.Error(w, "控制台访问地址无效，请使用本机或终端显示的 IP 地址", 403)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")

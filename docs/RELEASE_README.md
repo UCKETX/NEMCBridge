@@ -24,7 +24,7 @@ Windows 的令牌使用当前用户 DPAPI 加密，Linux/macOS 以 0600 文件�
 ./NEMCBridge -headless -data-dir ./data -web-port 18321
 ```
 
-`NEMCBRIDGE_TOKEN` 环境变量可提供令牌，也可以用 `-import-token` 从标准输入导入。控制台只监听本机；远程服务器可通过 SSH 转发访问控制台。Ctrl+C 或 SIGTERM 正常关闭房间和连接；网页也可停止房间。
+`NEMCBRIDGE_TOKEN` 环境变量可提供令牌，也可以用 `-import-token` 从标准输入导入。控制台默认监听 `0.0.0.0`，启动终端会输出局域网访问地址。网页没有独立登录认证，请通过防火墙限制为可信网络；远程服务器也可通过 SSH 转发访问控制台。Ctrl+C 或 SIGTERM 正常关闭房间和连接；网页也可停止房间。
 
 `config.example.json` 仅包含默认配置。Release 不含凭据、服务器程序、世界或日志。Web 界面已嵌入二进制，无需单独安装。
 
