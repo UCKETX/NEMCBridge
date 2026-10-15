@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"math"
 	"strconv"
 	"strings"
@@ -20,6 +21,35 @@ func BackendXUID(identity map[string]any) string {
 			return strconv.FormatUint(n, 10)
 		}
 	}
+	account := neteaseAccount(identity)
+	if account == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("NEMCBridge/netease/xuid/v1\x00" + account))
+	// 0x4e ('N') marks this project's compatibility namespace. Keep the value
+	// positive even in plugins that parse XUIDs as signed 64-bit integers.
+	value := binary.BigEndian.Uint64(sum[:8])&0x00ffffffffffffff | 0x4e00000000000000
+	return strconv.FormatUint(value, 10)
+}
+
+// BackendUUID isolates BDS offline saves by stable NetEase account, independent
+// of the client's placeholder identity UUID, display name and login session.
+// Ordinary Bedrock identities keep their UUID. This is not Xbox authentication.
+func BackendUUID(identity map[string]any) (uuid.UUID, error) {
+	if account := neteaseAccount(identity); account != "" {
+		return uuid.NewSHA1(uuid.NameSpaceOID, []byte("NEMCBridge/netease/player/v1\x00"+account)), nil
+	}
+	if _, ok := identity["netease_uid"]; ok {
+		return uuid.Nil, errors.New("网易账号标识无效，无法分配独立玩家存档")
+	}
+	if _, ok := identity["netease_uuid"]; ok {
+		return uuid.Nil, errors.New("网易账号标识无效，无法分配独立玩家存档")
+	}
+	text, _ := identity["identity"].(string)
+	return uuid.Parse(text)
+}
+
+func neteaseAccount(identity map[string]any) string {
 	var account string
 	switch uid := identity["netease_uid"].(type) {
 	case string:
@@ -43,9 +73,5 @@ func BackendXUID(identity map[string]any) string {
 		}
 		account = "uuid:" + id.String()
 	}
-	sum := sha256.Sum256([]byte("NEMCBridge/netease/xuid/v1\x00" + account))
-	// 0x4e ('N') marks this project's compatibility namespace. Keep the value
-	// positive even in plugins that parse XUIDs as signed 64-bit integers.
-	value := binary.BigEndian.Uint64(sum[:8])&0x00ffffffffffffff | 0x4e00000000000000
-	return strconv.FormatUint(value, 10)
+	return account
 }

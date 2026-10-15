@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 
@@ -14,7 +15,8 @@ import (
 
 // ServerConverter rewrites server batches for one NetEase client connection.
 type ServerConverter struct {
-	Trace func(string)
+	Trace                   func(string)
+	ClientUUID, BackendUUID uuid.UUID
 	// Observe receives original packets before conversion; it must not modify them.
 	Observe          func([]byte)
 	largeBatchLogged bool
@@ -46,6 +48,14 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 			b.Observe(pk)
 		}
 		switch id & 0x3ff {
+		case packet.IDCommandOutput:
+			if b.ClientUUID != b.BackendUUID {
+				packets[i], err = remapCommandUUID(pk, b.BackendUUID, b.ClientUUID)
+				if err != nil {
+					return nil, err
+				}
+				changed = true
+			}
 		case 9:
 			packets[i], err = patchText860(pk, true)
 			if err != nil {
@@ -63,7 +73,13 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 			if len(pk) >= n+16 {
 				var entry protocol.PlayerListEntry
 				protocol.NewReader(bytes.NewReader(pk[n:n+16]), 0, true).UUID(&entry.UUID)
-				confirms[i] = confirmSkinPacket([]protocol.PlayerListEntry{entry})
+				confirms[i] = confirmSkinPacketForClient([]protocol.PlayerListEntry{entry}, b.BackendUUID, b.ClientUUID)
+			}
+			if b.ClientUUID != b.BackendUUID {
+				packets[i], err = remapSkinUUID(packets[i], b.BackendUUID, b.ClientUUID)
+				if err != nil {
+					return nil, err
+				}
 			}
 			changed = true
 		case 148:
@@ -87,14 +103,24 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 				b.Trace("SetPlayerInventoryOptions 网易转换：补齐界面选项扩展")
 			}
 		case 187:
-			// Eulogist 4.8.0: common AbilityData, then Uint32 and Int64.
+			// Native protocol 860: common AbilityData, then Uint32 and Int64.
 			packets[i], err = patchAbilityPacket860(pk)
 			if err != nil {
 				return nil, err
 			}
 			changed = true
 			if b.Trace != nil {
-				b.Trace("UpdateAbilities 网易转换：补齐 12 字节能力扩展")
+				b.Trace(fmt.Sprintf("后端玩家权限：实体=%d，玩家权限=%d，命令权限=%d，能力层数=%d", int64(binary.LittleEndian.Uint64(pk[n:])), pk[n+8], pk[n+9], pk[n+10]))
+				for layer := 0; layer < int(pk[n+10]); layer++ {
+					offset := n + 11 + layer*22
+					mask := binary.LittleEndian.Uint32(pk[offset+2:])
+					values := binary.LittleEndian.Uint32(pk[offset+6:])
+					b.Trace(fmt.Sprintf("后端能力层：类型=%d，掩码=%#x，值=%#x，建造=%v，采集=%v；网易转换保留权限", binary.LittleEndian.Uint16(pk[offset:]), mask, values, mask&values&protocol.AbilityBuild != 0, mask&values&protocol.AbilityMine != 0))
+				}
+			}
+		case 188:
+			if b.Trace != nil && len(pk) == n+5 {
+				b.Trace(fmt.Sprintf("后端世界交互设置：禁止改动世界=%v，禁止玩家攻击生物=%v，禁止生物攻击玩家=%v", pk[n+2] != 0, pk[n] != 0, pk[n+1] != 0))
 			}
 		case 52:
 			// Three empty arrays (signed/signed/unsigned varint lengths),
@@ -108,7 +134,13 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 			// Eulogist 4.8.0 NetEase AddPlayer (0x140e3a900) writes String,
 			// String, Bool, Bool, Uint32, Int64 after BuildPlatform. Without
 			// them the client reads past the end of every other player's spawn.
-			packets[i] = append(append([]byte(nil), pk...), make([]byte, neteaseAddPlayerExtensionSize)...)
+			packets[i] = append(append([]byte(nil), pk...), neteaseAddPlayerExtension()...)
+			if b.ClientUUID != b.BackendUUID {
+				packets[i], err = remapWireUUID(packets[i], n, b.BackendUUID, b.ClientUUID)
+				if err != nil {
+					return nil, err
+				}
+			}
 			changed = true
 			if b.Trace != nil {
 				b.Trace("AddPlayer 网易转换：补齐 16 字节玩家扩展")
@@ -158,10 +190,17 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 			}
 			if len(added) > 0 {
 				changed = true
-				confirms[i] = confirmSkinPacket(added)
+				confirms[i] = confirmSkinPacketForClient(added, b.BackendUUID, b.ClientUUID)
 				if b.Trace != nil {
 					b.Trace(fmt.Sprintf("PlayerList 网易转换：补齐 %d 名玩家的列表扩展，并发送皮肤确认", len(added)))
 				}
+			}
+			if b.ClientUUID != b.BackendUUID {
+				packets[i], err = remapPlayerListUUID(packets[i], b.BackendUUID, b.ClientUUID)
+				if err != nil {
+					return nil, err
+				}
+				changed = true
 			}
 		}
 	}
@@ -185,6 +224,12 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 // The inventory-options packet is bidirectional. Strip only its known NetEase
 // final field; forwarding it to BDS would leave unread bytes in the packet.
 func ConvertClient(compressed []byte) ([]byte, error) {
+	return ConvertClientForPlayer(compressed, uuid.Nil, uuid.Nil)
+}
+
+// ConvertClientForPlayer keeps session UUID references paired with the stable
+// offline backend identity. Other players' UUIDs are never rewritten.
+func ConvertClientForPlayer(compressed []byte, clientUUID, backendUUID uuid.UUID) ([]byte, error) {
 	batch, err := gamebatch.Decode(compressed)
 	if err != nil {
 		return nil, err
@@ -194,12 +239,36 @@ func ConvertClient(compressed []byte) ([]byte, error) {
 		return nil, err
 	}
 	changed := false
+	loadingAcks := map[int][]byte{}
 	for i, pk := range packets {
 		id, n := binary.Uvarint(pk)
+		if n > 0 && id&0x3ff == packet.IDSetLocalPlayerAsInitialised {
+			_, size := binary.Uvarint(pk[n:])
+			if size <= 0 || n+size != len(pk) {
+				return nil, errors.New("客户端玩家初始化确认格式无效")
+			}
+			// NetEase confirms spawning with SetLocalPlayerAsInitialised but
+			// does not send the newer Bedrock loading-screen completion event.
+			// BDS otherwise retains its temporary LoadingScreen ability layer,
+			// which disables building/mining even for a member. Complete the
+			// initial loading screen only after the client confirms it is ready;
+			// keep all backend permission levels and ability layers unchanged.
+			ack := binary.AppendUvarint(nil, id&^uint64(0x3ff)|uint64(packet.IDServerBoundLoadingScreen))
+			ack = binary.AppendVarint(ack, packet.LoadingScreenTypeEnd)
+			loadingAcks[i] = append(ack, 0) // No dimension-loading screen ID at initial spawn.
+			changed = true
+			continue
+		}
 		if n > 0 && id&0x3ff == packet.IDCommandRequest {
 			packets[i], err = patchCommandRequest860(pk)
 			if err != nil {
 				return nil, err
+			}
+			if clientUUID != backendUUID {
+				packets[i], err = remapCommandUUID(packets[i], clientUUID, backendUUID)
+				if err != nil {
+					return nil, err
+				}
 			}
 			changed = true
 			continue
@@ -213,6 +282,12 @@ func ConvertClient(compressed []byte) ([]byte, error) {
 			continue
 		}
 		if n > 0 && id&0x3ff == 93 {
+			if clientUUID != backendUUID {
+				pk, err = remapSkinUUID(pk, clientUUID, backendUUID)
+				if err != nil {
+					return nil, err
+				}
+			}
 			packets[i], err = patchPlayerSkin860(pk, false)
 			if err != nil {
 				return nil, err
@@ -267,6 +342,16 @@ func ConvertClient(compressed []byte) ([]byte, error) {
 	if !changed {
 		return compressed, nil
 	}
+	if len(loadingAcks) > 0 {
+		withAcks := make([][]byte, 0, len(packets)+len(loadingAcks))
+		for i, pk := range packets {
+			withAcks = append(withAcks, pk)
+			if ack, ok := loadingAcks[i]; ok {
+				withAcks = append(withAcks, ack)
+			}
+		}
+		packets = withAcks
+	}
 	return gamebatch.Encode(compressed, gamebatch.Join(packets))
 }
 
@@ -283,11 +368,23 @@ func patchAbilityPacket860(pk []byte) ([]byte, error) {
 	}
 	result := binary.AppendUvarint(append([]byte(nil), pk[:n+10]...), uint64(count))
 	result = append(result, pk[n+11:]...)
-	return append(result, make([]byte, 12)...), nil
+	// A native 3.9.41 room sends 0 followed by -1 here for both members and
+	// operators. Eulogist's zero-initialised conversion object is not a native
+	// server default: its final Int64=0 differs from the on-wire sentinel.
+	result = binary.LittleEndian.AppendUint32(result, 0)
+	return binary.LittleEndian.AppendUint64(result, ^uint64(0)), nil
 }
 
-// Two empty strings, two false flags, a zero uint32 and a zero int64.
+// Two strings, two flags, Uint32 and Int64, observed in a native protocol 860
+// room. Keep the native flag and Int64 sentinel rather than object zero values.
 const neteaseAddPlayerExtensionSize = 1 + 1 + 1 + 1 + 4 + 8
+
+func neteaseAddPlayerExtension() []byte {
+	extension := make([]byte, neteaseAddPlayerExtensionSize)
+	extension[3] = 1
+	binary.LittleEndian.PutUint64(extension[8:], ^uint64(0))
+	return extension
+}
 
 // NetEase's add-player list includes five extra groups after Skin.Trusted:
 // optional-entry bool[], optional-entry bool[], string[], uint32[], bool[].

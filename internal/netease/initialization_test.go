@@ -4,6 +4,11 @@ import (
 	"bytes"
 	"compress/flate"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -50,7 +55,7 @@ func TestCompressedInitializationPreservesCompleteBatch(t *testing.T) {
 	var extra64 int64
 	r.Uint32(&extra32)
 	r.Int64(&extra64)
-	if buffer.Len() != 0 || extra32 != 0 || extra64 != 0 {
+	if buffer.Len() != 0 || extra32 != 0 || extra64 != -1 {
 		t.Fatal("NetEase ability fields incorrect")
 	}
 }
@@ -119,8 +124,121 @@ func TestNetEaseAbilityLayerCountUsesVaruint(t *testing.T) {
 		}
 		var entries []protocol.AbilityLayer
 		protocol.SliceOfLen(r, layers, &entries)
-		if buffer.Len() != 12 || !bytes.Equal(buffer.Bytes(), make([]byte, 12)) {
+		if buffer.Len() != 12 || !bytes.Equal(buffer.Bytes(), []byte{0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255}) {
 			t.Fatal("ability count changed layer boundaries")
+		}
+	}
+}
+
+func nativePermissionFixture(t *testing.T, name string) []byte {
+	t.Helper()
+	text, err := os.ReadFile("testdata/" + name + ".hex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire, err := hex.DecodeString(strings.TrimSpace(string(text)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return wire
+}
+
+func TestAbilityMatchesNativeMemberCapture(t *testing.T) {
+	want := nativePermissionFixture(t, "native-860-member-abilities")
+	// One base layer has the same one-byte count in both protocols. Remove
+	// only the proprietary trailer from the independently captured packet.
+	standard := want[:len(want)-12]
+	got, err := patchAbilityPacket860(standard)
+	if err != nil || !bytes.Equal(got, want) {
+		t.Fatalf("native member packet mismatch: %x, error %v", got, err)
+	}
+}
+
+// A visitor must remain restricted, while members and operators retain exactly
+// the backend's capabilities, including custom overrides in a second layer.
+func TestNetEasePreservesBackendPermissions(t *testing.T) {
+	for _, permission := range []byte{0, 1, 2, 3} {
+		t.Run(fmt.Sprintf("permission_%d", permission), func(t *testing.T) {
+			values := uint32(protocol.AbilityBuild | protocol.AbilityMine | protocol.AbilityDoorsAndSwitches)
+			if permission == 0 {
+				values = 0
+			}
+			want := protocol.AbilityData{EntityUniqueID: -34359738367, PlayerPermissions: permission, CommandPermissions: permission / 2, Layers: []protocol.AbilityLayer{
+				{Type: protocol.AbilityLayerTypeBase, Abilities: 0xfffff, Values: values, FlySpeed: .05, VerticalFlySpeed: 1, WalkSpeed: .1},
+				{Type: protocol.AbilityLayerTypeCommands, Abilities: protocol.AbilityFlying, Values: protocol.AbilityFlying, FlySpeed: .2, VerticalFlySpeed: .5, WalkSpeed: .3},
+			}}
+			var body bytes.Buffer
+			(&packet.UpdateAbilities{AbilityData: want}).Marshal(protocol.NewWriter(&body, 0))
+			wire := append(binary.AppendUvarint(nil, uint64(packet.IDUpdateAbilities)), body.Bytes()...)
+			converted, err := (&ServerConverter{}).Convert(append([]byte{0xff}, gamebatch.Join([][]byte{wire})...))
+			if err != nil {
+				t.Fatal(err)
+			}
+			packets, err := gamebatch.Split(converted[1:])
+			if err != nil || len(packets) != 1 {
+				t.Fatal("ability batch invalid", err)
+			}
+			_, n := binary.Uvarint(packets[0])
+			buffer := bytes.NewBuffer(packets[0][n:])
+			r := protocol.NewReader(buffer, 0, true)
+			var got protocol.AbilityData
+			r.Int64(&got.EntityUniqueID)
+			r.Uint8(&got.PlayerPermissions)
+			r.Uint8(&got.CommandPermissions)
+			var count uint32
+			r.Varuint32(&count)
+			protocol.SliceOfLen(r, count, &got.Layers)
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("backend permissions changed: got %+v want %+v", got, want)
+			}
+			if buffer.Len() != 12 {
+				t.Fatal("NetEase extension moved into ability data")
+			}
+		})
+	}
+}
+
+func TestNetEaseSpawnCompletesBackendLoading(t *testing.T) {
+	for _, compression := range []byte{0xff, 0} {
+		t.Run(fmt.Sprintf("compression_%d", compression), func(t *testing.T) {
+			// Retain sub-client routing and insert completion immediately after
+			// the client's spawn confirmation, before any subsequent action.
+			header := uint64(packet.IDSetLocalPlayerAsInitialised) | 1<<10 | 2<<12
+			spawn := binary.AppendUvarint(nil, header)
+			spawn = binary.AppendUvarint(spawn, 42000)
+			neighbor := []byte{69, 16, 8}
+			original, err := gamebatch.Encode([]byte{compression}, gamebatch.Join([][]byte{neighbor, spawn, neighbor}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			converted, err := ConvertClient(original)
+			if err != nil || converted[0] != compression {
+				t.Fatal("spawn batch compression changed", err)
+			}
+			plain, err := gamebatch.Decode(converted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			packets, err := gamebatch.Split(plain)
+			if err != nil || len(packets) != 4 || !bytes.Equal(packets[0], neighbor) || !bytes.Equal(packets[1], spawn) || !bytes.Equal(packets[3], neighbor) {
+				t.Fatal("spawn confirmation or adjacent packets changed", err)
+			}
+			ackHeader, n := binary.Uvarint(packets[2])
+			if ackHeader&0x3ff != packet.IDServerBoundLoadingScreen || ackHeader&^uint64(0x3ff) != header&^uint64(0x3ff) {
+				t.Fatal("loading completion packet routing incorrect")
+			}
+			body := bytes.NewBuffer(packets[2][n:])
+			var ack packet.ServerBoundLoadingScreen
+			ack.Marshal(protocol.NewReader(body, 0, true))
+			if ack.Type != packet.LoadingScreenTypeEnd || ack.LoadingScreenID != (protocol.Optional[uint32]{}) || body.Len() != 0 {
+				t.Fatal("loading completion contains an invalid event or dimension ID")
+			}
+		})
+	}
+	for _, body := range [][]byte{nil, {0x80}, {1, 0}} {
+		wire := append(binary.AppendUvarint(nil, uint64(packet.IDSetLocalPlayerAsInitialised)), body...)
+		if _, err := ConvertClient(append([]byte{0xff}, gamebatch.Join([][]byte{wire})...)); err == nil {
+			t.Fatal("invalid spawn confirmation accepted")
 		}
 	}
 }
@@ -221,7 +339,7 @@ func TestAddPlayerGainsNetEaseExtension(t *testing.T) {
 	buffer := bytes.NewBuffer(packets[0][1:])
 	var decoded packet.AddPlayer
 	decoded.Marshal(protocol.NewReader(buffer, 0, true))
-	if decoded.UUID != spawn.UUID || decoded.DeviceID != "device" || decoded.BuildPlatform != 7 || !bytes.Equal(buffer.Bytes(), make([]byte, neteaseAddPlayerExtensionSize)) {
+	if decoded.UUID != spawn.UUID || decoded.DeviceID != "device" || decoded.BuildPlatform != 7 || !bytes.Equal(buffer.Bytes(), nativePermissionFixture(t, "native-860-add-player-tail")) {
 		t.Fatal("NetEase AddPlayer extension missing or common fields changed")
 	}
 }

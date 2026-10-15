@@ -109,7 +109,30 @@ func TestWebRTCCommandRoundTrip(t *testing.T) {
 	testBDSWorldScenario(t, false, true, true, true, map[string]any{"netease_uid": "1261597877"})
 }
 
+func TestBDSOperatorDemotion(t *testing.T) {
+	if os.Getenv("NEMCBRIDGE_BDS_CONTROL_FILE") == "" {
+		t.Skip("requires isolated BDS with an operator test account")
+	}
+	member := byte(1)
+	testBDSWorldScenarioCommands(t, false, false, true, true, map[string]any{"netease_uid": "1261597877"}, []string{"/help", "/help"}, &member)
+}
+
 func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, identity map[string]any, skinOverrides ...map[string]any) {
+	t.Helper()
+	testBDSWorldScenarioCommands(t, cache, webRTC, chat, commands, identity, []string{"/help", "/help 1", "/nemcbridge_command_missing", "/help"}, nil, skinOverrides...)
+}
+
+type bdsPlayerSnapshot struct {
+	EntityID      int64
+	UUID          uuid.UUID
+	Position      [3]float32
+	Inventory     []stdprotocol.ItemInstance
+	inventorySeen bool
+}
+
+func testBDSWorldScenarioCommands(t *testing.T, cache, webRTC, chat, commands bool, identity map[string]any, commandLines []string, expectedFinalPermission *byte, skinOverrides ...map[string]any) bdsPlayerSnapshot {
+	t.Helper()
+	var snapshot bdsPlayerSnapshot
 	addr := os.Getenv("LOBBYKEEPER_BDS_TEST")
 	if addr == "" {
 		t.Skip("requires local BDS")
@@ -159,13 +182,15 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 		cacheFlag = 1
 	}
 	loggedIn := false
+	spawned := false
 	worldLoaded := false
 	biomeLoaded, playerListed, chunkProvided := false, false, false
 	skinVerified := len(skinOverrides) == 0
 	subChunkRequested, terrainProvided := false, false
 	chatSent, chatReceived := false, false
 	chatMessage := "NEMCBridge 中文双向聊天 🌍 " + loginUUID.String()[:8]
-	commandLines := []string{"/help", "/help 1", "/nemcbridge_command_missing", "/help"}
+	var lastAbilities stdprotocol.AbilityData
+	demotionRequested := false
 	commandIndex := 0
 	commandReceived := false
 	commandRequestID := ""
@@ -189,6 +214,14 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 		}
 		for _, pk := range packets {
 			id, n := binary.Uvarint(pk)
+			if id&0x3ff == stdpacket.IDInventoryContent && !snapshot.inventorySeen {
+				var content stdpacket.InventoryContent
+				content.Marshal(stdprotocol.NewReader(bytes.NewBuffer(pk[n:]), 0, true))
+				if content.WindowID == 0 {
+					snapshot.Inventory = content.Content
+					snapshot.inventorySeen = true
+				}
+			}
 			if commands && id&0x3ff == stdpacket.IDCommandOutput {
 				// Independently decode BDS output using the NetEase protocol.
 				buffer := bytes.NewBuffer(pk[n:])
@@ -200,8 +233,8 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 				// Vanilla player-origin replies clear RequestID, retaining UUID.
 				matchesRequest := output.CommandOrigin.RequestID == commandRequestID || output.CommandOrigin.RequestID == "" && output.CommandOrigin.UUID == loginUUID
 				if matchesRequest && commandIndex > 0 && !commandReceived {
-					if (commandIndex == 3) != (output.SuccessCount == 0) {
-						t.Fatalf("unexpected result for %q: success=%d", commandLines[commandIndex-1], output.SuccessCount)
+					if (commandLines[commandIndex-1] == "/nemcbridge_command_missing") != (output.SuccessCount == 0) {
+						t.Fatalf("unexpected result for %q: success=%d messages=%+v", commandLines[commandIndex-1], output.SuccessCount, output.OutputMessages)
 					}
 					commandReceived = true
 					t.Logf("command round trip passed: request=%d success=%d WebRTC=%v", commandIndex, output.SuccessCount, webRTC)
@@ -225,6 +258,10 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 			}
 			if id&0x3ff == 3 {
 				t.Fatal("RakNet encryption handshake leaked to NetherNet")
+			}
+			if id&0x3ff == stdpacket.IDPlayStatus && len(pk) >= n+4 && binary.BigEndian.Uint32(pk[n:]) == uint32(stdpacket.PlayStatusPlayerSpawn) {
+				spawned = true
+				writeTestGamePacket(t, stream, &stdpacket.SetLocalPlayerAsInitialised{EntityRuntimeID: runtimeID})
 			}
 			if id&0x3ff == 2 && len(pk) >= n+4 && binary.BigEndian.Uint32(pk[n:]) == 0 {
 				t.Log("BDS accepted rewritten login and encrypted ClientToServerHandshake; plaintext PlayStatus=0 returned")
@@ -266,7 +303,10 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 				}
 				t.Log("real BDS resource-pack exchange and independent StartGame 860 decoding passed")
 				worldLoaded = true
+				snapshot.EntityID = world.EntityUniqueID
+				snapshot.Position = world.PlayerPosition
 				runtimeID = world.EntityRuntimeID
+				t.Logf("BDS world permissions: player=%d entity=%d", world.PlayerPermissions, world.EntityUniqueID)
 			}
 			if id&0x3ff == 122 {
 				if !worldLoaded {
@@ -286,6 +326,10 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 				if list.ActionType == 0 && len(list.Entries) > 0 {
 					for _, entry := range list.Entries {
 						if identity != nil && entry.Username == loginIdentity["displayName"] {
+							snapshot.UUID = entry.UUID
+							if entry.UUID != loginUUID {
+								t.Fatal("recipient's own presentation UUID changed")
+							}
 							t.Logf("BDS account compatibility: player UUID preserved=%v", entry.UUID == loginUUID)
 						}
 						t.Logf("BDS skin: pixels=%dx%d bytes=%d geometryBytes=%d resourcePatchBytes=%d trusted=%v persona=%v", entry.Skin.SkinImageWidth, entry.Skin.SkinImageHeight, len(entry.Skin.SkinData), len(entry.Skin.SkinGeometry), len(entry.Skin.SkinResourcePatch), entry.Skin.Trusted, entry.Skin.PersonaSkin)
@@ -346,9 +390,11 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 				buffer := bytes.NewBuffer(pk[n:])
 				var abilities stdpacket.UpdateAbilities
 				abilities.Marshal(stdprotocol.NewReader(buffer, 0, true))
-				if buffer.Len() != 12 || !bytes.Equal(buffer.Bytes(), make([]byte, 12)) || len(abilities.AbilityData.Layers) == 0 {
+				if buffer.Len() != 12 || !bytes.Equal(buffer.Bytes(), []byte{0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255}) || len(abilities.AbilityData.Layers) == 0 {
 					t.Fatal("real BDS ability core or NetEase extension invalid")
 				}
+				t.Logf("BDS abilities: player=%d command=%d entity=%d layers=%+v", abilities.AbilityData.PlayerPermissions, abilities.AbilityData.CommandPermissions, abilities.AbilityData.EntityUniqueID, abilities.AbilityData.Layers)
+				lastAbilities = abilities.AbilityData
 			}
 			if id&0x3ff == stdpacket.IDCraftingData {
 				buffer := bytes.NewBuffer(pk[n:])
@@ -444,6 +490,18 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 				continue
 			}
 			if commands {
+				if os.Getenv("NEMCBRIDGE_BDS_IDENTITY_UID_PREFIX") != "" && !spawned {
+					continue
+				}
+				if expectedFinalPermission != nil && commandIndex == 1 && commandReceived && lastAbilities.PlayerPermissions != *expectedFinalPermission {
+					if !demotionRequested {
+						if err := os.WriteFile(os.Getenv("NEMCBRIDGE_BDS_CONTROL_FILE"), []byte("deop "+loginIdentity["displayName"].(string)+"\n"), 0600); err != nil {
+							t.Fatal(err)
+						}
+						demotionRequested = true
+					}
+					continue
+				}
 				if commandIndex < len(commandLines) && (commandIndex == 0 || commandReceived) {
 					commandRequestID = fmt.Sprintf("nemcbridge-command-%d", commandIndex)
 					request := &nepacket.CommandRequest{CommandLine: commandLines[commandIndex], CommandOrigin: neprotocol.CommandOrigin{Origin: neprotocol.CommandOriginPlayer, UUID: loginUUID, RequestID: commandRequestID}, Version: 42, UnLimited: commandIndex%2 == 1}
@@ -461,10 +519,29 @@ func testBDSWorldScenario(t *testing.T, cache, webRTC, chat, commands bool, iden
 				}
 			}
 			t.Logf("real BDS initialization and terrain subchunk delivery passed: cache=%v WebRTC=%v", cache, webRTC)
-			return
+			if expectedFinalPermission != nil && lastAbilities.PlayerPermissions != *expectedFinalPermission {
+				t.Fatalf("final permission: got %d, want %d", lastAbilities.PlayerPermissions, *expectedFinalPermission)
+			}
+			if expectedFinalPermission != nil {
+				canBuild, canMine := false, false
+				for _, layer := range lastAbilities.Layers {
+					if layer.Type == stdprotocol.AbilityLayerTypeLoadingScreen {
+						t.Fatal("BDS retained loading-screen restrictions after the client confirmed spawning")
+					}
+					if layer.Type == stdprotocol.AbilityLayerTypeBase {
+						canBuild = layer.Abilities&layer.Values&stdprotocol.AbilityBuild != 0
+						canMine = layer.Abilities&layer.Values&stdprotocol.AbilityMine != 0
+					}
+				}
+				if !canBuild || !canMine {
+					t.Fatal("member did not retain BDS build/mine abilities after demotion")
+				}
+			}
+			return snapshot
 		}
 	}
 	t.Fatal("BDS did not confirm login")
+	return snapshot
 }
 
 func writeTestGamePacket(t *testing.T, stream relay.Stream, p stdpacket.Packet) {

@@ -46,6 +46,8 @@ type Bridge struct {
 	serverPacketIDs map[uint64]bool
 	server          netease.ServerConverter
 	skinPlayer      uuid.UUID
+	clientPlayer    uuid.UUID
+	backendPlayer   uuid.UUID
 }
 
 func New(server relay.Stream, trace func(string)) (*Bridge, error) {
@@ -67,7 +69,7 @@ func (b *Bridge) Write(p []byte) (int, error) {
 			return 0, fmt.Errorf("后端登录转换失败：%w", err)
 		}
 		if b.trace != nil {
-			b.trace("已为本地服务器转换登录密钥，玩家身份与皮肤保留")
+			b.trace("已转换后端登录密钥与账号存档身份，保留玩家名称及皮肤")
 		}
 	}
 	if b.writes > 2 && b.writes <= 64 && len(p) > 1 {
@@ -78,7 +80,7 @@ func (b *Bridge) Write(p []byte) (int, error) {
 	}
 	if b.writes > 2 && len(p) > 1 {
 		b.observeClientEvents(p[1:])
-		converted, err := netease.ConvertClient(p[1:])
+		converted, err := netease.ConvertClientForPlayer(p[1:], b.clientPlayer, b.backendPlayer)
 		if err != nil {
 			return 0, err
 		}
@@ -254,10 +256,21 @@ func (b *Bridge) rewriteLogin(wire []byte) ([]byte, error) {
 				b.trace(line)
 			}
 		}
-		if id, record, ok := netease.OriginalLoginSkin(identity, skin); ok {
-			netease.RememberSkin(id, record)
-			b.skinPlayer = id
+		clientText, _ := identity["identity"].(string)
+		b.clientPlayer, err = uuid.Parse(clientText)
+		if err != nil {
+			return nil, errors.New("玩家 UUID 无效")
 		}
+		b.backendPlayer, err = BackendUUID(identity)
+		if err != nil {
+			return nil, err
+		}
+		b.server.ClientUUID, b.server.BackendUUID = b.clientPlayer, b.backendPlayer
+		if _, record, ok := netease.OriginalLoginSkin(identity, skin); ok {
+			netease.RememberSkin(b.backendPlayer, record)
+			b.skinPlayer = b.backendPlayer
+		}
+		identity["identity"] = b.backendPlayer.String()
 		skinChange, err := netease.NormalizeLoginSkin(skin)
 		if err != nil {
 			return nil, err

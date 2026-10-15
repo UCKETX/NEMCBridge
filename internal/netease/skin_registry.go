@@ -232,6 +232,10 @@ func LoginShapeSummary(identity map[string]any, claims map[string]json.RawMessag
 // ByteSlice}, then one String per entry (launcher uid, per neomega-core),
 // then another String per entry. Each player is confirmed with its uid.
 func confirmSkinPacket(players []protocol.PlayerListEntry) []byte {
+	return confirmSkinPacketForClient(players, uuid.Nil, uuid.Nil)
+}
+
+func confirmSkinPacketForClient(players []protocol.PlayerListEntry, backend, client uuid.UUID) []byte {
 	var body bytes.Buffer
 	w := protocol.NewWriter(&body, 0)
 	count := uint32(len(players))
@@ -241,7 +245,11 @@ func confirmSkinPacket(players []protocol.PlayerListEntry) []byte {
 		confirmed := true
 		var extra []byte
 		w.Bool(&confirmed)
-		w.UUID(&players[i].UUID)
+		id := players[i].UUID
+		if backend != client && id == backend {
+			id = client
+		}
+		w.UUID(&id)
 		w.ByteSlice(&extra)
 		if record, ok := lookupNetEaseSkin(players[i].UUID, players[i].Username); ok {
 			uids[i] = record.uid

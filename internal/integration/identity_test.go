@@ -9,7 +9,7 @@ import (
 	"nemcbridge/internal/relay/relaytest"
 )
 
-func TestBridgePreservesUUIDAndForwardsBackendXUID(t *testing.T) {
+func TestBridgeMapsAccountUUIDAndForwardsBackendXUID(t *testing.T) {
 	for _, xuid := range []string{"", "2535421234567890"} {
 		stream := relaytest.New()
 		b, err := bridge.New(stream, nil)
@@ -40,8 +40,9 @@ func TestBridgePreservesUUIDAndForwardsBackendXUID(t *testing.T) {
 		if err != nil {
 			t.Fatalf("rewritten login signatures invalid: %v", err)
 		}
-		if identity["identity"] != fields["identity"] || identity["displayName"] != fields["displayName"] {
-			t.Fatal("player UUID/name changed")
+		want, err := bridge.BackendUUID(fields)
+		if err != nil || identity["identity"] != want.String() || identity["displayName"] != fields["displayName"] {
+			t.Fatal("backend account UUID/name incorrect", err)
 		}
 		if identity["XUID"] != bridge.BackendXUID(fields) {
 			t.Fatalf("backend XUID = %v", identity["XUID"])
