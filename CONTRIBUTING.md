@@ -60,6 +60,6 @@ Windows 本地辅助脚本：`scripts/download-bedrock.py` 下载指定版本的
 
 `.github/workflows/release.yml` 在 main 推送和 Pull Request 上执行三平台测试及六平台架构构建。推送新的 `vX.Y.Z` 标签后，所有检查成功才发布 Release。已有标签不移动。
 
-维护者应先添加 `docs/releases/vX.Y.Z.md`，再提交并推送对应标签。工作流会用该文件作为说明，并打包程序、使用文档、配置示例、许可证和 SHA256；无需提供机器人令牌或 FGAuth Secrets。
+维护者应先添加 `docs/releases/vX.Y.Z.md`，再提交并推送对应标签。工作流会用该文件作为说明，并打包程序、使用文档、配置示例和 SHA256；无需提供机器人令牌或 FGAuth Secrets。
 
 维护者可通过 workflow_dispatch 对选定提交构建；填写的已有标签必须指向该提交。发布权限只赋予 release job。

@@ -112,7 +112,6 @@ jobs:
           cache-dependency-path: |
             go.sum
             vendor-src/nemc-tan-lobby-solver/go.sum
-      - run: go mod download all
       - name: Compile
         id: compile
         shell: bash
@@ -126,7 +125,7 @@ jobs:
           mkdir -p build
           go build -trimpath -ldflags "-s -w -X main.version=$VERSION -X main.commit=$GITHUB_SHA" -o "build/$binary" .
           echo "binary=build/$binary" >> "$GITHUB_OUTPUT"
-      - name: Package executable and licenses
+      - name: Package executable and documentation
         env:
           TARGET_OS: ${{ matrix.goos }}
           TARGET_ARCH: ${{ matrix.goarch }}

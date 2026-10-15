@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Package an explicit build with documentation and dependency licenses only."""
+"""Package an explicit build with user documentation and a configuration example."""
 import argparse
 import hashlib
-import json
 import os
 from pathlib import Path
 import re
@@ -12,61 +11,6 @@ import tarfile
 import tempfile
 import zipfile
 
-
-def modules():
-    raw = subprocess.check_output(["go", "list", "-m", "-json", "all"], encoding="utf-8")
-    decoder = json.JSONDecoder()
-    result = []
-    while raw.strip():
-        item, end = decoder.raw_decode(raw.lstrip())
-        raw = raw.lstrip()[end:]
-        result.append(item)
-    return result
-
-
-def write_third_party_notices(root, target):
-    records = []
-    texts = {}
-
-    def add_notice(path, label):
-        raw = path.read_bytes()
-        digest = hashlib.sha256(raw).hexdigest()
-        if digest not in texts:
-            texts[digest] = {"raw": raw, "sources": []}
-        texts[digest]["sources"].append(label)
-
-    for item in sorted(modules(), key=lambda module: module["Path"]):
-        if item.get("Main"):
-            continue
-        replacement = item.get("Replace", {})
-        directory = replacement.get("Dir") or item.get("Dir")
-        records.append(f"{item['Path']} {item.get('Version', '(local)')}")
-        if not directory:
-            raise RuntimeError(f"Missing downloaded dependency: {item['Path']}")
-        source = Path(directory)
-        # The vendored replacement includes several projects' licenses.
-        candidates = source.rglob("*") if replacement else source.iterdir()
-        for path in sorted(candidates):
-            if path.is_file() and re.match(r"^(LICENSE|COPYING|NOTICE|PATENTS)([.\-_]|$)", path.name, re.I):
-                add_notice(path, f"{item['Path']} {item.get('Version', '(local)')} / {path.relative_to(source).as_posix()}")
-    goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], encoding="utf-8").strip())
-    for name in ("LICENSE", "PATENTS"):
-        if (goroot / name).is_file():
-            add_notice(goroot / name, f"Go toolchain / {name}")
-    # Keep every original notice intact, with identical texts included once and
-    # attributed to all relevant modules. The archive needs just one notice file.
-    with target.open("wb") as output:
-        output.write((root / "THIRD_PARTY_NOTICES.md").read_bytes())
-        output.write(b"\n\n## Dependency versions\n\n```text\n")
-        output.write(("\n".join(records) + "\n").encode("utf-8"))
-        output.write(b"```\n\n## Full third-party license and notice texts\n")
-        for number, entry in enumerate(texts.values(), 1):
-            output.write(f"\n### Notice {number}\n\n".encode("utf-8"))
-            for label in entry["sources"]:
-                output.write(f"- `{label}`\n".encode("utf-8"))
-            raw = entry["raw"]
-            fence = b"`" * max(4, max((len(match) + 1 for match in re.findall(rb"`+", raw)), default=4))
-            output.write(b"\n" + fence + b"text\n" + raw + b"\n" + fence + b"\n")
 
 
 def main():
@@ -100,7 +44,6 @@ def main():
         for source, destination in (
             ("docs/RELEASE_README.md", "README.md"),
             ("config.example.json", "config.example.json"),
-            ("LICENSE", "LICENSE"),
             ("docs/protocol.md", "docs/protocol.md"),
             ("docs/setup.md", "docs/setup.md"),
             ("docs/compatibility.md", "docs/compatibility.md"),
@@ -113,14 +56,13 @@ def main():
                 for before, after in (
                     ("](setup.md)", "](docs/setup.md)"),
                     ("](compatibility.md)", "](docs/compatibility.md)"),
-                    ("](../LICENSE)", "](LICENSE)"),
-                    ("](../THIRD_PARTY_NOTICES.md)", "](THIRD_PARTY_NOTICES.md)"),
+                    ("](../LICENSE)", "](https://github.com/UCKETX/NEMCBridge/blob/main/LICENSE)"),
+                    ("](../THIRD_PARTY_NOTICES.md)", "](https://github.com/UCKETX/NEMCBridge/blob/main/THIRD_PARTY_NOTICES.md)"),
                 ):
                     text = text.replace(before, after)
                 (package / destination).write_text(text, encoding="utf-8")
             else:
                 shutil.copyfile(root / source, package / destination)
-        write_third_party_notices(root, package / "THIRD_PARTY_NOTICES.md")
         if args.os == "windows":
             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as target:
                 for path in sorted(package.rglob("*")):
