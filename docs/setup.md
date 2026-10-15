@@ -65,7 +65,7 @@ Ctrl+C、SIGTERM 或网页的退出功能会正常关闭房间。停止房间不
 ## 升级与校验
 
 1. 下载新版本及同名 `.sha256` 文件。
-2. 校验压缩包，例如 Linux/macOS：`sha256sum -c LobbyKeeper_v0.1.2_linux_amd64.tar.gz.sha256`。macOS 也可使用 `shasum -a 256 -c`；Windows 使用 `Get-FileHash` 与校验文件比对。
+2. 校验压缩包，例如 Linux/macOS：`sha256sum -c NEMCBridge_v0.1.0_linux_amd64.tar.gz.sha256`。macOS 也可使用 `shasum -a 256 -c`；Windows 使用 `Get-FileHash` 与校验文件比对。
 3. 正常退出旧挂服机，再替换可执行文件；保留自己的数据目录和 BDS 世界。
 4. 启动后确认后端状态和新房间号。
 

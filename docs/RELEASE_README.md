@@ -28,7 +28,7 @@ Windows 的令牌使用当前用户 DPAPI 加密，Linux/macOS 以 0600 文件�
 
 `config.example.json` 仅包含默认配置。Release 不含凭据、服务器程序、世界或日志。Web 界面已嵌入二进制，无需单独安装。
 
-下载后可用对应 `.sha256` 文件验证压缩包，例如 `sha256sum -c LobbyKeeper_v0.1.2_linux_amd64.tar.gz.sha256`。
+下载后可用对应 `.sha256` 文件验证压缩包，例如 `sha256sum -c NEMCBridge_v0.1.0_linux_amd64.tar.gz.sha256`。
 
 
 ## 更多说明与许可

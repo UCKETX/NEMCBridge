@@ -9,7 +9,7 @@ body:
     id: version
     attributes:
       label: NEMCBridge 版本
-      placeholder: v0.1.2 或源代码提交
+      placeholder: v0.1.0 或源代码提交
     validations:
       required: true
   - type: textarea
