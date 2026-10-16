@@ -118,6 +118,7 @@ chmod +x NEMCBridge
             <span class="step-num">3</span>
             <h3>登录并开房</h3>
             <p>打开 <code>http://127.0.0.1:18321/</code>，用 <code>admin</code> 和终端显示的首次密码登录。填写 <a href="https://fgauth.ucket.top" target="_blank" rel="noopener">FGAuth 验证服务器</a>、你的机器人令牌和后端地址，保存后点击「开房」。</p>
+            <p>后端世界已启用的材质包会默认下发：网易玩家加入时自动使用内置经典材质预加载，再下载服务器材质，无需额外开关或手动导入。首次加入请等待下载和加载完成。</p>
             <div class="join">
               <div><span class="tag tag-ne">网易</span>「本地联机」搜索控制台显示的房间号</div>
               <div><span class="tag tag-intl">国际版</span>添加服务器：BDS 地址 + UDP 端口</div>
@@ -128,7 +129,7 @@ chmod +x NEMCBridge
         </section>
 
         <section class="doc-sec" id="download">
-          <h2><a href="#download">下载 <span data-version>v0.1.6</span></a></h2>
+          <h2><a href="#download">下载 <span data-version>v0.1.7</span></a></h2>
           <p class="doc-lead"><span data-release-date>选择你的系统与架构。</span>每个压缩包都附带同名 <code>.sha256</code> 校验文件，解压即可运行。</p>
         <div class="downloads" data-downloads>
           <a class="dl" data-reveal data-os="windows" data-arch="amd64"><span class="dl-os">Windows</span><span class="dl-arch">amd64</span><small>大多数 Intel / AMD 电脑</small><span class="dl-file"></span></a>
@@ -167,18 +168,19 @@ chmod +x NEMCBridge
               <li>双向文字聊天（含中文与 emoji）</li>
               <li>命令转发与回执，错误命令后保持连接</li>
               <li>玩家皮肤互显</li>
+              <li>服务器材质包下载、多个包和多分片传输，缓存后重新进服</li>
               <li>最大 32 MiB 解压批次与超过 255 个 WebRTC 分片</li>
             </ul>
             <h3>当前限制</h3>
             <ul class="list-warn">
-              <li>网易端跳过服务端资源包与行为包，依赖包的自定义内容可能无法显示</li>
+              <li>行为包、脚本、自定义实体及复杂 UI 的兼容性需逐项验证</li>
               <li>商城、4D、动画或自定义几何皮肤不保证兼容</li>
               <li>重新开房后房间号可能变化</li>
               <li>不支持 Java 版客户端</li>
             </ul>
           </div>
         </div>
-        <p class="more">完整边界 → <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility.md" target="_blank" rel="noopener">兼容性说明</a></p>
+        <p class="more"><a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/resource-packs.md" target="_blank" rel="noopener">材质包配置与加载说明</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility.md" target="_blank" rel="noopener">完整兼容性说明</a></p>
         </section>
 
         <section class="doc-sec" id="faq">
@@ -197,8 +199,12 @@ chmod +x NEMCBridge
             <p>检查 BDS 地址、端口、版本，以及 <code>online-mode</code>、压缩算法和方块 ID 设置。提交问题时附上已脱敏的连接阶段日志和双方完整版本号。</p>
           </details>
           <details data-reveal>
-            <summary>看不到皮肤或资源包内容？</summary>
-            <p>国际版尝试关闭「仅允许受信任的皮肤」并让双方重新加入。网易端目前跳过后端资源包，不能依靠服务器下发包来显示自定义内容；特殊商城、4D 或自定义模型不保证兼容。</p>
+            <summary>看不到皮肤？</summary>
+            <p>国际版尝试关闭「仅允许受信任的皮肤」并让双方重新加入。特殊商城、4D 或自定义模型不保证兼容；若只在启用某个材质包后异常，请检查该包对玩家模型和渲染的覆盖。</p>
+          </details>
+          <details data-reveal>
+            <summary>如何让网易玩家加载服务器材质包？</summary>
+            <p>使用 v0.1.7 或更新版本，在 BDS 世界中安装并启用目标材质包即可。NEMCBridge 默认自动完成经典材质预加载和后端资源下载，无需创建原生房间或导入配置。更新包后同步提高 manifest 和世界引用版本，重启后端并重新开房。加载失败或界面异常时，参阅<a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/resource-packs.md" target="_blank" rel="noopener">资源包说明</a>；复杂 UI、行为包及脚本仍需单独验证。</p>
           </details>
           <details data-reveal>
             <summary>需要自己准备哪些东西？</summary>
@@ -215,7 +221,16 @@ chmod +x NEMCBridge
           <h2><a href="#changelog">更新日志</a></h2>
         <ol class="timeline">
           <li data-reveal>
-            <div class="tl-head"><span class="tl-ver">v0.1.6</span><span class="tl-badge">最新</span></div>
+            <div class="tl-head"><span class="tl-ver">v0.1.7</span><span class="tl-badge">最新</span></div>
+            <ul>
+              <li>默认支持服务器材质包，自动使用内置经典材质预加载</li>
+              <li>适配多个包、分片下载和缓存后重新进服</li>
+              <li>修复下载完成后可能卡住，以及后端重复声明资源包的问题</li>
+              <li>修复局域网 HTTP 控制台复制房间号失败</li>
+            </ul>
+          </li>
+          <li data-reveal>
+            <div class="tl-head"><span class="tl-ver">v0.1.6</span></div>
             <ul>
               <li>同时开最多 8 个房间，突破单房间 9 人限制</li>
               <li>控制台按房间管理令牌，列出全部房间号</li>
