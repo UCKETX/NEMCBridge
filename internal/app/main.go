@@ -20,6 +20,8 @@ import (
 	"nemcbridge/internal/auth"
 	"nemcbridge/internal/bridge"
 	"nemcbridge/internal/config"
+	"nemcbridge/internal/netease"
+	"nemcbridge/internal/packimport"
 	"nemcbridge/internal/secret"
 	"nemcbridge/internal/session"
 	"nemcbridge/internal/webui"
@@ -43,6 +45,8 @@ func runMain() error {
 	debug := flag.Bool("debug", false, "开启详细诊断日志（也可在控制台即时切换）")
 	check := flag.Bool("check", false, "检查本地服务器和真实鉴权，然后退出")
 	importToken := flag.Bool("import-token", false, "从标准输入读取令牌并保存")
+	resourceRoom := flag.String("import-resource-room", "", "从网易原生房间导入组件资源配置后退出（先停止机器人房间）")
+	resourcePassword := flag.String("resource-room-password", "", "待导入的原生房间密码")
 	resetAdmin := flag.Bool("reset-admin-password", false, "重置管理密码并在终端显示新密码")
 	duration := flag.Int("run-seconds", 0, "运行指定秒数后关房退出（测试用）")
 	flag.Parse()
@@ -109,6 +113,37 @@ func runMain() error {
 	}
 	if len(tokens) > maxRooms {
 		return fmt.Errorf("最多同时开 %d 个房间，当前提供了 %d 个令牌", maxRooms, len(tokens))
+	}
+	if *resourceRoom != "" {
+		if len(tokens) == 0 {
+			return fmt.Errorf("请先保存机器人令牌")
+		}
+		lease, err := session.Acquire(tokens[0])
+		if err != nil {
+			return err
+		}
+		defer lease.Close()
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer cancel()
+		ctx, timeout := context.WithTimeout(ctx, 90*time.Second)
+		defer timeout()
+		if err = session.RejectRunningRoom(ctx, cfg.WebPort); err != nil {
+			return err
+		}
+		fmt.Println("正在读取原生房间资源配置；同一机器人账号应只在本处登录")
+		profile, err := packimport.Capture(ctx, cfg, tokens[0], *resourceRoom, *resourcePassword)
+		if err != nil {
+			return err
+		}
+		if err = netease.SaveResourceProfile(filepath.Join(dir, netease.ResourceProfileFile), profile); err != nil {
+			return err
+		}
+		cfg.NetEaseResourcePacks = true
+		if err = config.Save(filepath.Join(dir, "config.json"), cfg); err != nil {
+			return err
+		}
+		fmt.Printf("已导入 %d 个网易组件并启用组件资源。请重新启动程序；资源配置含包密钥，请勿公开。\n", len(profile.ItemIDs))
+		return nil
 	}
 	logger, logFile, err := openLogger(dir)
 	if err != nil {

@@ -17,6 +17,8 @@ import (
 type ServerConverter struct {
 	Trace                   func(string)
 	ClientUUID, BackendUUID uuid.UUID
+	ForwardResourcePacks    bool
+	ResourceProfile         *ResourceProfile
 	// Observe receives original packets before conversion; it must not modify them.
 	Observe          func([]byte)
 	largeBatchLogged bool
@@ -146,25 +148,60 @@ func (b *ServerConverter) Convert(compressed []byte) ([]byte, error) {
 				b.Trace("AddPlayer 网易转换：补齐 16 字节玩家扩展")
 			}
 		case 6:
+			if b.ResourceProfile != nil {
+				if b.ForwardResourcePacks {
+					packets[i], err = mergeResourceInfo(pk, b.ResourceProfile)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					packets[i] = profilePacket(pk, b.ResourceProfile.Info)
+				}
+				changed = true
+				if b.Trace != nil {
+					b.Trace("网易组件预加载：应用组件资源信息")
+				}
+				continue
+			}
 			var removed int
-			packets[i], removed, err = neteaseResourcePacksInfo(pk)
+			packets[i], removed, err = neteaseResourcePacksInfo(pk, b.ForwardResourcePacks)
 			if err != nil {
 				return nil, err
 			}
+			changed = changed || !bytes.Equal(pk, packets[i])
+			if b.ForwardResourcePacks && b.Trace != nil {
+				b.Trace("实验性资源包：保留后端资源包列表与下载参数，等待客户端下载响应")
+			}
 			if removed > 0 {
-				changed = true
 				if b.Trace != nil {
-					b.Trace(fmt.Sprintf("ResourcePacksInfo 网易转换：网易客户端不支持游戏内下载，跳过 %d 个服务器资源包", removed))
+					b.Trace(fmt.Sprintf("ResourcePacksInfo 网易转换：兼容模式跳过 %d 个服务器资源包", removed))
 				}
 			}
 		case 7:
+			if b.ResourceProfile != nil {
+				if b.ForwardResourcePacks {
+					packets[i], err = mergeResourceStack(pk, b.ResourceProfile)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					packets[i] = profilePacket(pk, b.ResourceProfile.Stack)
+				}
+				changed = true
+				if b.Trace != nil {
+					b.Trace("网易组件预加载：应用原生资源顺序及扩展列表")
+				}
+				continue
+			}
 			var removed int
-			packets[i], removed, err = neteaseResourcePackStack(pk)
+			packets[i], removed, err = neteaseResourcePackStack(pk, b.ForwardResourcePacks)
 			if err != nil {
 				return nil, err
 			}
 			changed = true
-			if b.Trace != nil {
+			if b.ForwardResourcePacks && b.Trace != nil {
+				b.Trace("实验性资源包：保留后端资源包加载顺序，补齐网易栈扩展")
+			} else if b.Trace != nil {
 				b.Trace(fmt.Sprintf("ResourcePackStack 网易转换：移除 %d 个服务器包，补齐两个空资源包数组", removed))
 			}
 		case 11:

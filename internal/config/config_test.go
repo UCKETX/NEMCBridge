@@ -28,6 +28,29 @@ func TestAutoAcceptFriendsUpgradeAndOptOut(t *testing.T) {
 	}
 }
 
+func TestResourcePacksDefaultAndLegacyUpgrade(t *testing.T) {
+	if !Default().ForwardResourcePacks || Default().NetEaseResourcePacks {
+		t.Fatal("default must forward server packs using built-in Classic preload")
+	}
+	for _, raw := range []string{`{}`, `{"forward_resource_packs":false,"netease_resource_packs":false}`, `{"forward_resource_packs":true,"netease_resource_packs":true}`} {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(raw), 0600); err != nil {
+			t.Fatal(err)
+		}
+		for range 2 {
+			c, err := Load(path)
+			if err != nil || !c.ForwardResourcePacks {
+				t.Fatal("legacy resource setting was not upgraded", err)
+			}
+			var original map[string]bool
+			json.Unmarshal([]byte(raw), &original)
+			if c.NetEaseResourcePacks != original["netease_resource_packs"] {
+				t.Fatal("custom profile preference changed")
+			}
+		}
+	}
+}
+
 func TestRoomCapacityAndOldConfiguration(t *testing.T) {
 	for _, limit := range []int{1, 11, 40} {
 		c := Default()

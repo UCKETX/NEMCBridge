@@ -13,23 +13,25 @@ import (
 )
 
 type Config struct {
-	AuthServer        string `json:"auth_server"`
-	Upstream          string `json:"upstream"`
-	RoomName          string `json:"room_name"`
-	RoomGameVersion   string `json:"room_game_version"`
-	RoomPassword      string `json:"room_password"`
-	MaxPlayers        int    `json:"max_players"`
-	FriendsOnly       bool   `json:"friends_only"`
-	AutoAcceptFriends bool   `json:"auto_accept_friends"`
-	AllowPvP          bool   `json:"allow_pvp"`
-	AutoStart         bool   `json:"auto_start"`
-	WebPort           int    `json:"web_port"`
-	RetrySeconds      int    `json:"retry_seconds"`
-	Debug             bool   `json:"debug"`
+	AuthServer           string `json:"auth_server"`
+	Upstream             string `json:"upstream"`
+	RoomName             string `json:"room_name"`
+	RoomGameVersion      string `json:"room_game_version"`
+	RoomPassword         string `json:"room_password"`
+	MaxPlayers           int    `json:"max_players"`
+	FriendsOnly          bool   `json:"friends_only"`
+	AutoAcceptFriends    bool   `json:"auto_accept_friends"`
+	AllowPvP             bool   `json:"allow_pvp"`
+	AutoStart            bool   `json:"auto_start"`
+	ForwardResourcePacks bool   `json:"forward_resource_packs"`
+	NetEaseResourcePacks bool   `json:"netease_resource_packs"`
+	WebPort              int    `json:"web_port"`
+	RetrySeconds         int    `json:"retry_seconds"`
+	Debug                bool   `json:"debug"`
 }
 
 func Default() Config {
-	return Config{AuthServer: "https://fgauth.ucket.top", Upstream: "127.0.0.1:19132", RoomName: "来和我一起玩吧！", RoomGameVersion: "1.21.120.0", MaxPlayers: 10, AllowPvP: true, AutoAcceptFriends: true, WebPort: 18321, RetrySeconds: 10}
+	return Config{AuthServer: "https://fgauth.ucket.top", Upstream: "127.0.0.1:19132", RoomName: "来和我一起玩吧！", RoomGameVersion: "1.21.120.0", MaxPlayers: 10, AllowPvP: true, AutoAcceptFriends: true, ForwardResourcePacks: true, WebPort: 18321, RetrySeconds: 10}
 }
 
 func (c Config) Validate() error {
@@ -92,10 +94,17 @@ func Load(path string) (Config, error) {
 	if err = json.Unmarshal(b, &c); err != nil {
 		return c, err
 	}
+	// Resource forwarding is now the normal user flow. Upgrade the earlier
+	// experimental opt-in so existing installations also get the new default.
+	changed := !c.ForwardResourcePacks
+	c.ForwardResourcePacks = true
 	// Older versions allowed requesting up to 40 slots without verifying that
 	// NetEase would grant them. Keep those installations usable with 10 slots.
 	if c.MaxPlayers > 10 && c.MaxPlayers <= 40 {
 		c.MaxPlayers = 10
+		changed = true
+	}
+	if changed {
 		return c, Save(path, c)
 	}
 	return c, c.Validate()

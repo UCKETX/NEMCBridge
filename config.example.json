@@ -9,6 +9,8 @@
   "auto_accept_friends": true,
   "allow_pvp": true,
   "auto_start": false,
+  "forward_resource_packs": true,
+  "netease_resource_packs": false,
   "web_port": 18321,
   "retry_seconds": 10,
   "debug": false

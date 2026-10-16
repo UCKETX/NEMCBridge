@@ -47,6 +47,7 @@ def main():
             ("docs/protocol.md", "docs/protocol.md"),
             ("docs/setup.md", "docs/setup.md"),
             ("docs/compatibility.md", "docs/compatibility.md"),
+            ("docs/resource-packs.md", "docs/resource-packs.md"),
             ("CONTRIBUTING.md", "CONTRIBUTING.md"),
         ):
             (package / destination).parent.mkdir(parents=True, exist_ok=True)
@@ -56,6 +57,7 @@ def main():
                 for before, after in (
                     ("](setup.md)", "](docs/setup.md)"),
                     ("](compatibility.md)", "](docs/compatibility.md)"),
+                    ("](resource-packs.md)", "](docs/resource-packs.md)"),
                     ("](../LICENSE)", "](https://github.com/UCKETX/NEMCBridge/blob/main/LICENSE)"),
                     ("](../THIRD_PARTY_NOTICES.md)", "](https://github.com/UCKETX/NEMCBridge/blob/main/THIRD_PARTY_NOTICES.md)"),
                 ):

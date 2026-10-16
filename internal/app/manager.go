@@ -22,6 +22,7 @@ import (
 	"nemcbridge/internal/config"
 	"nemcbridge/internal/fileutil"
 	"nemcbridge/internal/friends"
+	"nemcbridge/internal/netease"
 	"nemcbridge/internal/redact"
 	"nemcbridge/internal/relay"
 	"nemcbridge/internal/room"
@@ -218,6 +219,8 @@ type roomToken struct {
 // configure saves settings and, when given, the token list. rooms replaces the
 // whole list; the older single token argument replaces the first room's token.
 func (m *Manager) configure(c config.Config, token *string, rooms *[]roomToken) error {
+	// Older consoles may still submit the removed experimental opt-in.
+	c.ForwardResourcePacks = true
 	if err := c.Validate(); err != nil {
 		return err
 	}
@@ -324,6 +327,10 @@ func (m *Manager) start() error {
 	if len(m.tokens) == 0 {
 		return fmt.Errorf("请先保存机器人令牌")
 	}
+	profile, err := m.resourceProfile()
+	if err != nil {
+		return err
+	}
 	// Lock every token up front so a busy one cannot leave the rest half-started.
 	leases := make([]*session.Session, 0, len(m.tokens))
 	for i, token := range m.tokens {
@@ -358,7 +365,7 @@ func (m *Manager) start() error {
 		go func(i int, token string, lease *session.Session) {
 			defer rooms.Done()
 			defer lease.Close()
-			m.run(ctx, i, len(tokens), cfg, token, logs)
+			m.run(ctx, i, len(tokens), cfg, token, logs, profile)
 		}(i, token, leases[i])
 	}
 	go func() {
@@ -378,6 +385,22 @@ func (m *Manager) start() error {
 		m.event("房间已停止")
 	}()
 	return nil
+}
+
+func (m *Manager) resourceProfile() (*netease.ResourceProfile, error) {
+	if m.cfg.NetEaseResourcePacks {
+		// Explicit custom profiles keep existing deployments compatible. A
+		// missing file falls back to Classic; corrupt/unreadable files report
+		// an error instead of silently changing the requested component.
+		path := filepath.Join(m.dir, netease.ResourceProfileFile)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			return netease.LoadResourceProfile(path)
+		}
+	}
+	if m.cfg.ForwardResourcePacks || m.cfg.NetEaseResourcePacks {
+		return netease.BuiltinResourceProfile()
+	}
+	return nil, nil
 }
 
 func (m *Manager) stop() {
@@ -406,7 +429,7 @@ type roomLog struct {
 func (l roomLog) event(message string) { l.m.event(l.label + message) }
 func (l roomLog) debug(message string) { l.m.debug(l.label + message) }
 
-func (m *Manager) run(ctx context.Context, index, count int, cfg config.Config, token string, logs *gameLogs) {
+func (m *Manager) run(ctx context.Context, index, count int, cfg config.Config, token string, logs *gameLogs, profile *netease.ResourceProfile) {
 	rl := roomLog{m: m, label: roomLabel(index, count)}
 	rl.event("启动本地联机房主机器人")
 	failures := 0
@@ -436,7 +459,11 @@ func (m *Manager) run(ctx context.Context, index, count int, cfg config.Config, 
 				rl.debug(fmt.Sprintf("鉴权通过，房间协议 %d；连接开房节点", info.ProtocolID))
 				var opened *room.Room
 				createCtx, cancel := context.WithTimeout(ctx, 35*time.Second)
-				opened, err = room.Open(createCtx, cfg, info, rl.debug)
+				var itemIDs []uint64
+				if profile != nil {
+					itemIDs = profile.ItemIDs
+				}
+				opened, err = room.OpenWithResourcePacks(createCtx, cfg, info, rl.debug, itemIDs)
 				cancel()
 				if err == nil {
 					failures = 0
@@ -447,7 +474,7 @@ func (m *Manager) run(ctx context.Context, index, count int, cfg config.Config, 
 						s.LastError = ""
 					})
 					rl.event(fmt.Sprintf("房间 %d 已上线，房主机器人持续保活", opened.ID))
-					err = m.serveRoom(ctx, index, cfg, opened, info, logs, rl)
+					err = m.serveRoom(ctx, index, cfg, opened, info, logs, rl, profile)
 					opened.Close()
 				}
 			}
@@ -488,7 +515,7 @@ func (m *Manager) run(ctx context.Context, index, count int, cfg config.Config, 
 	}
 }
 
-func (m *Manager) serveRoom(ctx context.Context, index int, cfg config.Config, r *room.Room, info auth.CreateInfo, gameLogs *gameLogs, rl roomLog) error {
+func (m *Manager) serveRoom(ctx context.Context, index int, cfg config.Config, r *room.Room, info auth.CreateInfo, gameLogs *gameLogs, rl roomLog, profile *netease.ResourceProfile) error {
 	sessionCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	friendDone := make(chan struct{})
@@ -551,7 +578,7 @@ func (m *Manager) serveRoom(ctx context.Context, index int, cfg config.Config, r
 				}
 				defer server.Close()
 				rl.debug("本地服务器 RakNet 连接成功")
-				backend, err := bridge.New(server, rl.debug)
+				backend, err := bridge.NewWithOptions(server, rl.debug, bridge.Options{ForwardResourcePacks: cfg.ForwardResourcePacks, ResourceProfile: profile})
 				if err != nil {
 					rl.event("无法生成后端连接密钥")
 					return

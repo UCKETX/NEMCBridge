@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"nemcbridge/internal/config"
+	"nemcbridge/internal/netease"
 	"nemcbridge/internal/secret"
 	"nemcbridge/internal/session"
 )
@@ -29,6 +30,57 @@ func TestManagerRejectsDuplicateBeforeLogin(t *testing.T) {
 	}
 	if m.snapshot().Running || m.cancel != nil {
 		t.Fatal("duplicate start changed manager state")
+	}
+}
+
+func TestManagerUsesBuiltinPreloadWithoutImport(t *testing.T) {
+	token := "test-only-" + uuid.NewString()
+	for _, components := range []bool{false, true} {
+		m := newManager(t.TempDir(), config.Config{Upstream: "127.0.0.1:0", RetrySeconds: 10, ForwardResourcePacks: true, NetEaseResourcePacks: components}, []string{token}, log.New(io.Discard, "", 0))
+		p, err := m.resourceProfile()
+		if err != nil || p == nil || len(p.ItemIDs) != 1 || p.ItemIDs[0] != netease.ClassicPreloadComponentID {
+			t.Fatalf("builtin context (components=%v): %v", components, err)
+		}
+		if err := m.start(); err != nil {
+			t.Fatal("builtin preload must not require an imported file", err)
+		}
+		m.stop()
+		m.wait()
+		lease, err := session.Acquire(token)
+		if err != nil {
+			t.Fatalf("session lock leaked: %v", err)
+		}
+		lease.Close()
+	}
+}
+
+func TestManagerKeepsCustomPreloadOptional(t *testing.T) {
+	m := newManager(t.TempDir(), config.Config{}, nil, log.New(io.Discard, "", 0))
+	if p, err := m.resourceProfile(); p != nil || err != nil {
+		t.Fatal("disabled resources unexpectedly load a profile", err)
+	}
+	p, err := netease.BuiltinResourceProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.ItemIDs[0] = 12345
+	path := filepath.Join(m.dir, netease.ResourceProfileFile)
+	if err := netease.SaveResourceProfile(path, p); err != nil {
+		t.Fatal(err)
+	}
+	m.cfg.ForwardResourcePacks = true
+	if got, err := m.resourceProfile(); err != nil || got.ItemIDs[0] != netease.ClassicPreloadComponentID {
+		t.Fatal("custom file applied without opting in", err)
+	}
+	m.cfg.NetEaseResourcePacks = true
+	if got, err := m.resourceProfile(); err != nil || got.ItemIDs[0] != 12345 {
+		t.Fatal("custom override ignored", err)
+	}
+	if err := os.WriteFile(path, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.resourceProfile(); err == nil {
+		t.Fatal("invalid explicit override silently replaced")
 	}
 }
 

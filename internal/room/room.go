@@ -37,6 +37,7 @@ type Room struct {
 	writeMu   sync.Mutex
 	once      sync.Once
 	trace     func(string)
+	ready     *readyRetries
 }
 
 func marshalControl(p packet.Packet) ([]byte, error) {
@@ -87,6 +88,10 @@ func (r *Room) read() (p packet.Packet, err error) {
 }
 
 func Open(ctx context.Context, cfg config.Config, info auth.CreateInfo, trace func(string)) (r *Room, err error) {
+	return OpenWithResourcePacks(ctx, cfg, info, trace, nil)
+}
+
+func OpenWithResourcePacks(ctx context.Context, cfg config.Config, info auth.CreateInfo, trace func(string), itemIDs []uint64) (r *Room, err error) {
 	var id [8]byte
 	if _, err = rand.Read(id[:]); err != nil {
 		return nil, err
@@ -141,6 +146,7 @@ func Open(ctx context.Context, cfg config.Config, info auth.CreateInfo, trace fu
 		privacy = 1
 	}
 	if err = r.write(&packet.TanCreateRoomRequest{
+		ItemIDs:  append([]uint64(nil), itemIDs...),
 		Capacity: uint8(cfg.MaxPlayers), Privacy: privacy, Name: "", Slogan: cfg.RoomName, Password: cfg.RoomPassword,
 		Tips: encoding.RoomTips{LevelID: "NEMCBridge", GameType: 0, ConstantTestString: "test", ProtocolID: info.ProtocolID, GameVersion: cfg.RoomGameVersion},
 		PvP:  cfg.AllowPvP, PlayerAuth: 1, EnableWebRTC: true, OwnerPing: 3, PerfLv: 1,
@@ -181,6 +187,7 @@ func Open(ctx context.Context, cfg config.Config, info auth.CreateInfo, trace fu
 		return nil, ctx.Err()
 	}
 	ok = true
+	r.ready = newReadyRetries(r.done, r.notifyReady, trace)
 	go r.controlLoop()
 	return r, nil
 }
@@ -192,14 +199,17 @@ func (r *Room) controlLoop() {
 			r.fail(fmt.Errorf("房间连接断开: %w", err))
 			return
 		}
-		if _, ok := p.(*packet.TanNewGuestResponse); ok {
+		if guest, ok := p.(*packet.TanNewGuestResponse); ok {
 			if r.trace != nil {
 				r.trace("收到玩家加入请求，发送服务器就绪信息")
 			}
-			if err = r.write(&packet.TanNotifyServerReady{ServerAddress: "127.0.0.1|19132", NetherNetID: strconv.FormatUint(r.networkID, 10), WebRTCCompressEnabled: true}); err != nil {
+			if err = r.notifyReady(); err != nil {
 				r.fail(err)
 				return
 			}
+			r.ready.start(guest.PlayerID, guest.NetherNetID)
+		} else if left, ok := p.(*packet.TanLeaveRoomResponse); ok {
+			r.ready.stopPlayer(left.PlayerID)
 		} else if p != nil && r.trace != nil {
 			r.trace(fmt.Sprintf("收到房间控制包：%T", p))
 		}
@@ -216,7 +226,19 @@ func (r *Room) fail(err error) {
 }
 
 // Accept returns the next player's NetherNet connection.
-func (r *Room) Accept() (net.Conn, error) { return r.listener.Accept() }
+func (r *Room) Accept() (net.Conn, error) {
+	c, err := r.listener.Accept()
+	if err == nil && c != nil {
+		if addr, ok := c.RemoteAddr().(*nethernet.Addr); ok {
+			r.ready.stopNetwork(strconv.FormatUint(addr.NetworkID, 10))
+		}
+	}
+	return c, err
+}
+
+func (r *Room) notifyReady() error {
+	return r.write(&packet.TanNotifyServerReady{ServerAddress: "127.0.0.1|19132", NetherNetID: strconv.FormatUint(r.networkID, 10), WebRTCCompressEnabled: true})
+}
 
 // Done is closed when the room's control connection ends.
 func (r *Room) Done() <-chan struct{} { return r.done }

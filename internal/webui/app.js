@@ -115,6 +115,36 @@ function renderEvents(events) {
 
 const roomIDs = () => (state?.rooms?.length ? state.rooms.map(r => r.room_id) : [state?.room_id]).filter(Boolean);
 
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return; } catch { /* Try the HTTP-compatible path below. */ }
+  }
+  // Clipboard API is unavailable on LAN HTTP. Run the legacy copy command
+  // from the button's click, with an actual selected, focusable text field.
+  const active = document.activeElement;
+  const selection = document.getSelection();
+  const ranges = selection ? Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange()) : [];
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.readOnly = true;
+  field.setAttribute('aria-label', '待复制的房间号');
+  Object.assign(field.style, { position: 'fixed', top: '0', left: '0', width: '1px', height: '1px', opacity: '0', fontSize: '16px' });
+  document.body.append(field);
+  try {
+    field.focus({ preventScroll: true });
+    field.select();
+    field.setSelectionRange(0, text.length);
+    if (!document.execCommand('copy')) throw Error('浏览器未允许复制');
+  } finally {
+    field.remove();
+    active?.focus({ preventScroll: true });
+    if (selection) {
+      selection.removeAllRanges();
+      ranges.forEach(range => selection.addRange(range));
+    }
+  }
+}
+
 async function refresh() {
   try {
     const r = await fetch('/api/status');
@@ -173,13 +203,17 @@ async function refresh() {
 $('start').onclick = async () => { try { message = ''; await api('start'); await refresh(); } catch (e) { flash(e.message); } };
 $('stop').onclick = async () => { try { message = ''; await api('stop'); await refresh(); } catch (e) { flash(e.message); } };
 $('copy').onclick = async () => {
-  const label = $('copy').querySelector('[data-label]');
+  const ids = roomIDs();
+  if (!ids.length) { flash('当前没有可复制的房间号'); return; }
+  const button = $('copy');
+  const label = button.querySelector('[data-label]');
   try {
-    await navigator.clipboard.writeText(roomIDs().join('\n'));
-    $('copy').classList.add('is-done');
+    await copyText(ids.join('\n'));
+    button.classList.add('is-done');
     label.textContent = '已复制';
-    setTimeout(() => { $('copy').classList.remove('is-done'); refresh(); }, 1500);
-  } catch { notice('请手动复制上方房间号'); }
+    clearTimeout(button.copyTimer);
+    button.copyTimer = setTimeout(() => { button.classList.remove('is-done'); refresh(); }, 1500);
+  } catch { flash('浏览器未允许自动复制，请手动复制房间号：' + ids.join('、')); }
 };
 $('add-room').onclick = () => {
   if (tokenRows.length >= MAX_ROOMS) return;

@@ -19,6 +19,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,18 +49,43 @@ type Bridge struct {
 	skinPlayer      uuid.UUID
 	clientPlayer    uuid.UUID
 	backendPlayer   uuid.UUID
+	resources       *resourceDownloads
+	closed          atomic.Bool
 }
 
 func New(server relay.Stream, trace func(string)) (*Bridge, error) {
+	return NewWithOptions(server, trace, Options{})
+}
+
+type Options struct {
+	// Forward backend packs, including native clients that initially skip the
+	// download. With ResourceProfile, preload native components and merge packs.
+	ForwardResourcePacks bool
+	ResourceProfile      *netease.ResourceProfile
+}
+
+func NewWithOptions(server relay.Stream, trace func(string), options Options) (*Bridge, error) {
+	if options.ResourceProfile != nil {
+		if err := options.ResourceProfile.Validate(); err != nil {
+			return nil, err
+		}
+	}
 	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	b := &Bridge{Stream: server, key: key, trace: trace, server: netease.ServerConverter{Trace: trace}}
+	b := &Bridge{Stream: server, key: key, trace: trace, server: netease.ServerConverter{Trace: trace, ForwardResourcePacks: options.ForwardResourcePacks}}
+	b.server.ResourceProfile = options.ResourceProfile
 	b.server.Observe = b.observeServerPacket
+	if options.ForwardResourcePacks {
+		b.resources = newResourceDownloads(trace, b.resumeResourceDownload)
+	}
 	return b, err
 }
 
 func (b *Bridge) Write(p []byte) (int, error) {
 	b.writeMu.Lock()
 	defer b.writeMu.Unlock()
+	if b.closed.Load() {
+		return 0, io.ErrClosedPipe
+	}
 	original := len(p)
 	b.writes++
 	if b.writes == 2 {
@@ -84,25 +110,68 @@ func (b *Bridge) Write(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if b.resources != nil {
+			converted, err = b.resources.client(converted)
+			if err != nil {
+				return 0, err
+			}
+			if converted == nil {
+				return original, nil
+			}
+		}
 		p = append([]byte{0xfe}, converted...)
 	}
+	if err := b.writeBackend(p); err != nil {
+		return 0, err
+	}
+	return original, nil
+}
+
+// Caller holds writeMu: backend AES counters must include generated responses.
+func (b *Bridge) writeBackend(p []byte) error {
 	if b.send != nil {
 		if len(p) == 0 || p[0] != 0xfe {
-			return 0, errors.New("缺少 RakNet 游戏包头")
+			return errors.New("缺少 RakNet 游戏包头")
 		}
 		p = append([]byte{0xfe}, b.send.encrypt(p[1:])...)
 	}
 	n, err := b.Stream.Write(p)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	if n != len(p) {
-		return 0, io.ErrShortWrite
+		return io.ErrShortWrite
 	}
-	return original, nil
+	return nil
+}
+
+func (b *Bridge) resumeResourceDownload(pk []byte) error {
+	b.writeMu.Lock()
+	defer b.writeMu.Unlock()
+	if b.closed.Load() {
+		return io.ErrClosedPipe
+	}
+	err := b.writeBackend(append([]byte{0xfe, 0xff}, gamebatch.Join([][]byte{pk})...))
+	if err != nil {
+		b.Stream.Close() // Interrupt a pending backend read on async write failure.
+	}
+	return err
+}
+
+func (b *Bridge) Close() error {
+	if !b.closed.CompareAndSwap(false, true) {
+		return nil
+	}
+	if b.resources != nil {
+		b.resources.close()
+	}
+	return b.Stream.Close()
 }
 
 func (b *Bridge) ReadPacket() ([]byte, error) {
+	if b.resources != nil {
+		b.resources.forwarded()
+	}
 	for {
 		p, err := b.Stream.ReadPacket()
 		if err != nil {
@@ -116,6 +185,11 @@ func (b *Bridge) ReadPacket() ([]byte, error) {
 			plain, err := b.recv.decrypt(p[1:])
 			if err != nil {
 				return nil, err
+			}
+			if b.resources != nil {
+				if err := b.resources.server(plain); err != nil {
+					return nil, err
+				}
 			}
 			if b.reads <= 8 {
 				netease.TraceResourcePacks(plain, false, b.trace)

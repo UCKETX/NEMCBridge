@@ -54,6 +54,20 @@ func TraceResourcePacks(batch []byte, fromClient bool, trace func(string)) {
 			if fromClient {
 				trace("资源包协商：客户端请求资源包分块")
 			}
+		case packet.IDResourcePackDataInfo:
+			if !fromClient {
+				var info packet.ResourcePackDataInfo
+				if decodeQuietly(func() { info.Marshal(reader) }) {
+					trace(fmt.Sprintf("资源包协商：服务器发送下载信息，大小=%d，分块大小=%d，块数=%d，类型=%d", info.Size, info.DataChunkSize, info.ChunkCount, info.PackType))
+				}
+			}
+		case packet.IDResourcePackChunkData:
+			if !fromClient {
+				var chunk packet.ResourcePackChunkData
+				if decodeQuietly(func() { chunk.Marshal(reader) }) {
+					trace(fmt.Sprintf("资源包协商：服务器发送分块，序号=%d，偏移=%d，大小=%d", chunk.ChunkIndex, chunk.DataOffset, len(chunk.Data)))
+				}
+			}
 		}
 	}
 }
