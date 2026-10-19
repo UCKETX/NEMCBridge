@@ -1,0 +1,18 @@
+{
+  "auth_server": "https://fgauth.ucket.top",
+  "upstream": "127.0.0.1:19132",
+  "room_name": "来和我一起玩吧！",
+  "room_game_version": "1.21.120.0",
+  "room_password": "",
+  "max_players": 10,
+  "friends_only": false,
+  "auto_accept_friends": true,
+  "allow_pvp": true,
+  "auto_start": false,
+  "forward_resource_packs": true,
+  "netease_resource_packs": false,
+  "web_port": 18321,
+  "retry_seconds": 10,
+  "debug": false,
+  "check_updates": true
+}
