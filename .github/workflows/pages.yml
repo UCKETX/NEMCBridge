@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'scripts/build_site.py'
       - '.github/workflows/pages.yml'
+  release:
+    types: [published, edited, deleted]
   workflow_dispatch:
 
 permissions:
@@ -27,8 +30,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Release tags may point to older website sources; always deploy main.
+          ref: main
           persist-credentials: false
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Embed current release data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/releases/latest" > "$RUNNER_TEMP/latest.json"
+          gh api "repos/$GH_REPO/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          python3 scripts/build_site.py site "$RUNNER_TEMP/latest.json" "$RUNNER_TEMP/releases.json"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site

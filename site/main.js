@@ -2,7 +2,11 @@
   "use strict";
 
   const REPO = "UCKETX/NEMCBridge";
-  const FALLBACK_TAG = "v0.1.8";
+  const FALLBACK_TAG = "v0.1.10";
+  const releaseData = (() => {
+    try { return JSON.parse(document.getElementById("release-data")?.textContent || "null"); }
+    catch { return null; }
+  })();
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
@@ -209,7 +213,7 @@
   }
 
   const assetName = (tag, os, arch) => `NEMCBridge_${tag}_${os}_${arch}${os === "windows" ? ".zip" : ".tar.gz"}`;
-  let current = { tag: FALLBACK_TAG, assets: null };
+  let current = { tag: releaseData?.latest?.tag_name || FALLBACK_TAG, assets: releaseData?.latest?.assets || null };
 
   function applyRelease(rel) {
     const { tag } = rel;
@@ -241,6 +245,9 @@
   const cacheGet = (k) => { try { const v = JSON.parse(sessionStorage.getItem(k)); return v && Date.now() - v.t < 6e5 ? v.d : null; } catch { return null; } };
   const cacheSet = (k, d) => { try { sessionStorage.setItem(k, JSON.stringify({ t: Date.now(), d })); } catch { /* ignore */ } };
   async function gh(path) {
+    // Pages embeds these at deploy time; GitHub can be unreachable or rate limited for visitors.
+    if (path === "/releases/latest" && releaseData?.latest) return releaseData.latest;
+    if (path === "/releases?per_page=100" && Array.isArray(releaseData?.releases)) return releaseData.releases;
     const hit = cacheGet(path);
     if (hit) return hit;
     const ctrl = new AbortController();
