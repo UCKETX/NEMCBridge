@@ -21,7 +21,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  refresh:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      # Release events carry a tag ref. Dispatch on main so the deployment
+      # satisfies github-pages' branch protection and uses current site sources.
+      - name: Deploy current website from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --ref main
+
   deploy:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
