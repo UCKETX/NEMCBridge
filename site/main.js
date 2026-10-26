@@ -57,6 +57,34 @@
     if (rows) el.innerHTML = pixelSVG(rows);
   });
 
+  /* Same flowing dashed wires and fixed arrowheads as the management console. */
+  const flowMobile = window.matchMedia("(max-width: 1080px)");
+  const flowLinks = $$(".flow .link");
+  const svgNamespace = "http://www.w3.org/2000/svg";
+  function drawFlowLink(link) {
+    const vertical = flowMobile.matches, reverse = link.classList.contains("link-rev");
+    const width = link.clientWidth, height = link.clientHeight;
+    const length = vertical ? height : width, center = (vertical ? width : height) / 2;
+    const start = reverse ? length - 1 : 1, tip = reverse ? 1 : length - 1;
+    const base = tip + (reverse ? 5 : -5);
+    const point = (along, across) => vertical ? `${across} ${along}` : `${along} ${across}`;
+    const svg = document.createElementNS(svgNamespace, "svg");
+    svg.setAttribute("class", "flow-link");
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("aria-hidden", "true");
+    for (const [className, d] of [
+      ["flow-wire", `M ${point(start, center)} L ${point(tip, center)}`],
+      ["flow-arrowhead", `M ${point(base, center - 5)} L ${point(tip, center)} L ${point(base, center + 5)}`],
+    ]) {
+      const path = document.createElementNS(svgNamespace, "path");
+      path.setAttribute("class", className); path.setAttribute("d", d); svg.append(path);
+    }
+    link.replaceChildren(svg);
+  }
+  const flowResize = new ResizeObserver(entries => entries.forEach(({ target }) => drawFlowLink(target)));
+  flowLinks.forEach(link => { drawFlowLink(link); flowResize.observe(link); });
+  flowMobile.addEventListener("change", () => flowLinks.forEach(drawFlowLink));
+
   /* ---------- Terminal banner (same 5×5 font and gradient as the real CLI) ---------- */
   const FONT = {
     N: ["10001", "11001", "10101", "10011", "10001"],

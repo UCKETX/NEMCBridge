@@ -184,16 +184,13 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -.01em; }
 .node-intl .px-icon { border-color: rgba(56, 189, 248, .4); background: rgba(56, 189, 248, .08); }
 .node-bds .px-icon { border-color: rgba(74, 222, 128, .4); background: rgba(74, 222, 128, .08); }
 
-.link { --len: 100%; flex: 1 1 40px; min-width: 28px; height: 2px; position: relative; margin: 0 6px 56px; background: repeating-linear-gradient(90deg, var(--line-2) 0 6px, transparent 6px 12px); }
-.link::before { content: attr(data-proto); position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font: 600 11px/1 var(--mono); color: var(--purple-l); white-space: nowrap; letter-spacing: .03em; }
-.link::after { content: ""; position: absolute; right: -2px; top: -4px; border: 5px solid transparent; border-left: 7px solid var(--line-2); border-right: 0; }
-.link-rev::after { right: auto; left: -2px; border-left: 0; border-right: 7px solid var(--line-2); }
-.link i { position: absolute; top: -3px; left: 0; width: 8px; height: 8px; background: var(--purple-l); box-shadow: 0 0 12px var(--purple); animation: travel 2.4s linear infinite; opacity: 0; }
-.link i:nth-child(2) { animation-delay: .8s; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
-.link i:nth-child(3) { animation-delay: 1.6s; }
-.link-rev i { animation-name: travel-rev; background: var(--intl); box-shadow: 0 0 12px var(--intl); }
-@keyframes travel { 0% { left: 0; opacity: 0; } 15%, 85% { opacity: 1; } 100% { left: calc(100% - 8px); opacity: 0; } }
-@keyframes travel-rev { 0% { left: calc(100% - 8px); opacity: 0; } 15%, 85% { opacity: 1; } 100% { left: 0; opacity: 0; } }
+.link { --wire: var(--purple-l); flex: 1 1 40px; min-width: 28px; height: 12px; position: relative; margin: 0 6px 56px; }
+.link::before { content: attr(data-proto); position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font: 600 11px/1 var(--mono); color: var(--purple-l); white-space: nowrap; letter-spacing: .03em; }
+.link-rev { --wire: var(--intl); }
+.flow-link { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.flow-link path { fill: none; stroke: var(--wire); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.flow-wire { stroke-dasharray: 5 7; animation: flow-forward 1.4s linear infinite; }
+@keyframes flow-forward { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -24; } }
 
 .core {
   position: relative; flex: 0 0 210px; padding: 26px 18px 20px; text-align: center;
@@ -453,12 +450,8 @@ a.tl-ver:hover { color: var(--purple-l); }
   .node .px-icon { grid-row: span 2; }
   .node b { align-self: end; }
   .node small { align-self: start; }
-  .link { flex: none; width: 2px; height: 56px; min-width: 0; margin: 8px 0; background: repeating-linear-gradient(180deg, var(--line-2) 0 6px, transparent 6px 12px); }
-  .link::before { left: 16px; bottom: auto; top: 50%; transform: translateY(-50%); }
-  .link::after { right: auto; left: -4px; top: auto; bottom: -2px; border: 5px solid transparent; border-top: 7px solid var(--line-2); border-bottom: 0; }
-  .link-rev::after { bottom: auto; top: -2px; border-top: 0; border-bottom: 7px solid var(--line-2); left: -4px; }
-  .link i { left: -3px; top: 0; animation-name: travel-v; }
-  .link-rev i { animation-name: travel-v-rev; }
+  .link { flex: none; width: 12px; height: 56px; min-width: 0; margin: 8px 0; }
+  .link::before { left: 22px; bottom: auto; top: 50%; transform: translateY(-50%); }
   .core { flex: none; width: 100%; max-width: 360px; margin: 18px 0 0; }
   .bento { grid-template-columns: repeat(2, 1fr); }
   .card, .card-play, .card-console, .card-term, .card-term ~ .card { grid-column: span 1; }
@@ -476,8 +469,6 @@ a.tl-ver:hover { color: var(--purple-l); }
   .docs-head { padding-top: 48px; }
   .doc-sec { scroll-margin-top: 136px; }
 }
-@keyframes travel-v { 0% { top: 0; opacity: 0; } 15%, 85% { opacity: 1; } 100% { top: calc(100% - 8px); opacity: 0; } }
-@keyframes travel-v-rev { 0% { top: calc(100% - 8px); opacity: 0; } 15%, 85% { opacity: 1; } 100% { top: 0; opacity: 0; } }
 
 @media (max-width: 860px) {
   .nav-inner { gap: 12px; }
@@ -538,6 +529,5 @@ a.tl-ver:hover { color: var(--purple-l); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
-  .link i { display: none; }
   .js [data-reveal] { opacity: 1; transform: none; }
 }
