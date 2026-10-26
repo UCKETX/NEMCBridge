@@ -18,6 +18,8 @@ FGAuth 默认地址是 `https://fgauth.ucket.top`，可在控制台改为其他�
 
 ## 后端设置
 
+### BDS
+
 在 BDS 的 `server.properties` 中设置：
 
 ```properties
@@ -33,6 +35,18 @@ block-network-ids-are-hashes=true
 网易玩家原始登录中的 XUID 通常为空。桥接会优先使用网易账号 `netease_uid`，缺失时使用 `netease_uuid`，生成固定的数字兼容 ID 并放入后端 XUID 字段，便于服务器日志及插件区分玩家；已有的有效 XUID 会保留。兼容 ID 不是微软分配的 Xbox XUID，不适用于 Xbox 账号查询或正版验证。映射不使用玩家名称、临时会话或随机数，后端玩家 UUID 也按上述网易账号生成，以隔离不同账号的背包、位置等持久数据；如果两种网易账号字段都缺失，则保持 XUID 为空。
 
 升级到按账号隔离 UUID 的版本后，网易玩家会使用独立存档；此前因占位 UUID 产生的共用玩家数据仍留在世界里，不自动迁移给任一账号。需要恢复旧物品时，请先备份世界再由管理员分配。
+
+### Purpur / Paper + Geyser（实验性）
+
+Geyser 必须支持当前网易桥接的基岩版协议 **860**。本次适配使用的方块表与 **Geyser 2.9.1-b999（dbed595）** 一致，其原版顺序方块 ID 会在收到 StartGame 时自动识别并双向转换，无需在桥接中增加开关。不要在 Java 的 `server.properties` 中添加 `block-network-ids-are-hashes`；该选项只对 BDS 有效。
+
+桥接目标填写 Geyser 的基岩版 **UDP** 地址和端口，例如 `127.0.0.1:19132`，不能填写 Java TCP 端口。Geyser 需要允许无 Xbox 签名的代理登录，并配置相应的 Java 认证入口。若使用离线入口，则 Geyser 的 `remote.auth-type`（新版为 `java.auth-type`）设为 `offline`，单机 Java 后端 `online-mode=false`。这会关闭该 Java 后端的正版认证；保留 Java 正版入口需要独立配置代理与认证。Geyser UDP 离线入口应只允许可信桥接机器访问。
+
+当前转换覆盖区块和子区块的方块调色板、单个及批量方块更新、物品栏与装备、配方和创造物品栏、方块实体元数据以及玩家物品交互。生物群系、NBT、区块索引及物品额外数据保持原始字节。顺序模式暂不支持自定义方块表或区块 blob 缓存；Geyser 的普通区块传输不使用该缓存，网易客户端仍可发送自己的缓存能力声明。
+
+已通过协议与回归测试，并由用户确认真实网易客户端连接 Geyser 的进服测试通过；这不代表所有插件、自定义内容和交互均已逐项验证。Geyser 旧版 `TagCache.java:97` 的标签空指针属于另一项已知问题，官方修复为 [#6325](https://github.com/GeyserMC/Geyser/pull/6325)；旧版协议 860 构建需要回移修复，不能直接替换为不再支持 860 的新构建。
+
+攻击或切换物品时出现的大型冷却提示由 Geyser 提供。可在 `plugins/Geyser-Spigot/config.yml` 的 `gameplay` 下将 `show-cooldown` 设为 `disabled`，或设为 `actionbar` 移到快捷栏上方，保存并重启 Geyser 后重新进服。黑色文字背景可在客户端「设置 → 无障碍 → 文字背景不透明度」调为 0；这些选项只影响显示，不改变 Java 后端的攻击冷却。
 
 ## 配置与数据
 

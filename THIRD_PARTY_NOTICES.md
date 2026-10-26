@@ -9,6 +9,7 @@ NEMCBridge 程序包含下列第三方组件，各组件保留其原有许可。
 | [nemc-tan-lobby-solver](https://github.com/Happy2018new/nemc-tan-lobby-solver) v0.2.8（含本地修改） | 网易本地联机房间、NetherNet / WebRTC 传输 | 见下文 |
 | [gophertunnel](https://github.com/Sandertv/gophertunnel) | Bedrock 协议 | MIT |
 | [go-raknet](https://github.com/Sandertv/go-raknet) | RakNet 连接 | MIT |
+| [GeyserMC/Geyser](https://github.com/GeyserMC/Geyser) `dbed595` | 协议 860 原版顺序方块 ID 与哈希 ID 对照数据 | MIT，见 `THIRD_PARTY_LICENSES.md` |
 | [Pion](https://github.com/pion) | WebRTC、DTLS、ICE、SCTP 等 | MIT |
 | Go 扩展库（`golang.org/x/crypto`、`net`、`sys`） | 加密与系统接口 | BSD-3-Clause |
 | 其他依赖 | 压缩、编码、UUID 等 | 见 `THIRD_PARTY_LICENSES.md` |
