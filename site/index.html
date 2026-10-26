@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NEMCBridge · 让网易版与国际版玩家在同一个世界相遇</title>
-  <meta name="description" content="NEMCBridge 让房主机器人常驻网易《我的世界》本地联机房间，把玩家接入你自己的 Bedrock 服务器，网易版与国际版玩家同服游玩。">
+  <title>NEMCBridge · 网易版接入 Bedrock 与 Java 服务器</title>
+  <meta name="description" content="NEMCBridge 将网易《我的世界》本地联机房间接入你的 Bedrock 服务器，并支持通过 Geyser 接入 Java 服务器，让网易版、基岩版与 Java 版玩家同服游玩。">
   <meta name="theme-color" content="#0b0914">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:title" content="NEMCBridge">
-  <meta property="og:description" content="让网易版与国际版 Bedrock 玩家，在同一个世界相遇。">
+  <meta property="og:description" content="支持网易版通过 Geyser 接入 Java 服务器，也可接入 Bedrock 服务器与国际版玩家同服游玩。">
   <meta property="og:image" content="https://ucketx.github.io/NEMCBridge/assets/og.jpg">
   <meta property="og:url" content="https://ucketx.github.io/NEMCBridge/">
   <meta name="twitter:card" content="summary_large_image">
@@ -48,7 +48,7 @@
       <div class="wrap hero-inner">
         <a class="release-pill" href="https://github.com/UCKETX/NEMCBridge/releases/latest" target="_blank" rel="noopener" data-reveal>
           <span class="pill-tag">NEW</span>
-          <span data-release-label>v0.1.10 已发布 · 证书安全修复</span>
+          <span data-release-label>v1.2.1 已发布 · 支持 Geyser 接入</span>
           <span aria-hidden="true">→</span>
         </a>
         <h1 data-reveal>
@@ -57,12 +57,12 @@
         </h1>
         <p class="lead" data-reveal>
           房主机器人常驻网易「本地联机」房间，把玩家接入你自己的 Bedrock 服务器。<br>
-          网易版搜房间号加入，国际版直连服务器。
+          支持网易版通过 Geyser 接入 Java 服务器。
         </p>
         <div class="hero-cta" data-reveal>
           <a class="btn btn-primary btn-lg" href="docs.html#download" data-os-download>
             <svg class="btn-icon" viewBox="0 0 8 10" width="16" height="20" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M3 0h2v8H3zM0 3h1v2H0zm1 1h1v2H1zm1 1h1v2H2zm5-2h1v2H7zM6 4h1v2H6zM5 5h1v2H5zM0 9h8v1H0z"/></svg>
-            <span><span data-os-label>下载最新版</span><small data-version-label>v0.1.10 · 免安装单文件</small></span>
+            <span><span data-os-label>下载最新版</span><small data-version-label>v1.2.1 · 免安装单文件</small></span>
           </a>
           <a class="btn btn-ghost btn-lg" href="docs.html#start">
             <span>五分钟部署</span><span aria-hidden="true">→</span>
@@ -82,7 +82,7 @@
           </picture>
           <figcaption>
             <span><i class="dot dot-green"></i>房间在线</span>
-            <span>网易版 ⇄ Bedrock 1.21.124</span>
+            <span>网易版 ⇄ Bedrock / Java</span>
           </figcaption>
         </figure>
       </div>
@@ -90,7 +90,7 @@
 
     <section class="stats wrap" aria-label="项目概览">
       <div class="stat" data-reveal><strong><span data-count="2">2</span><em>端</em></strong><span>网易版与国际版<br>同服互通</span></div>
-      <div class="stat" data-reveal><strong><span data-count="8">8</span><em>房间</em></strong><span>同时开房<br>进同一个服</span></div>
+      <div class="stat" data-reveal><strong>多<em>房间</em></strong><span>多个账号同时开房<br>可接入不同服务器</span></div>
       <div class="stat" data-reveal><strong><span data-count="6">6</span><em>个</em></strong><span>平台架构<br>发布包</span></div>
       <div class="stat" data-reveal><strong><span data-count="0">0</span><em>依赖</em></strong><span>单个可执行文件<br>解压即用</span></div>
     </section>
@@ -100,7 +100,7 @@
         <div class="section-head" data-reveal>
           <span class="kicker">01 · HOW IT WORKS</span>
           <h2>一座桥，连接两套协议</h2>
-          <p>网易玩家走 WebRTC 进入本地联机房间，NEMCBridge 在中间完成身份映射与协议转换，再通过 RakNet 接入同一台 BDS。国际版玩家照常直连，不经过桥。</p>
+          <p>网易玩家通过本地联机房间连接 NEMCBridge，桥接完成身份映射与协议转换，再接入 BDS 或通过 Geyser 进入 Java 世界。基岩版与 Java 版玩家直连对应的服务器。</p>
         </div>
 
         <div class="flow" data-reveal>
@@ -128,12 +128,12 @@
           <div class="link" data-proto="RakNet"><i></i><i></i><i></i></div>
           <div class="node node-bds">
             <i class="px-icon" data-icon="grass"></i>
-            <b>Bedrock 服务器</b><small>你的 BDS<br>同一个世界</small>
+            <b>游戏服务器</b><small>BDS 或 Geyser<br>同一个世界</small>
           </div>
-          <div class="link link-rev" data-proto="UDP 直连"><i></i><i></i><i></i></div>
+          <div class="link link-rev" data-proto="客户端直连"><i></i><i></i><i></i></div>
           <div class="node node-intl">
             <i class="px-icon" data-icon="player-b"></i>
-            <b>国际版玩家</b><small>服务器地址<br>+ UDP 端口</small>
+            <b>国际版玩家</b><small>基岩版或 Java 版<br>直连服务器</small>
           </div>
         </div>
       </div>
@@ -151,7 +151,7 @@
           <article class="card card-play" data-reveal>
             <i class="px-icon" data-icon="grass"></i>
             <h3>真正的共同游玩</h3>
-            <p>区块加载、破坏与放置方块、双向文字聊天、玩家皮肤互显，默认加载后端服务器材质包。网易玩家按账号拥有独立存档，改名重进也不丢背包。</p>
+            <p>支持 BDS 与 Geyser 协议 860 原版方块表，可接入基岩版或 Java 服务器。区块加载、方块交互、双向聊天、皮肤互显与后端材质包同步，网易玩家按账号拥有独立存档。</p>
             <div class="chat" aria-label="聊天示例">
               <div class="msg msg-l"><span class="tag tag-ne">网易</span><b>竹林小筑</b>今晚一起去下界吗？</div>
               <div class="msg msg-r"><span class="tag tag-intl">国际版</span><b>Steve</b>Sure! I'll bring the obsidian ⛏️</div>
