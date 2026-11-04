@@ -48,7 +48,7 @@
       <div class="wrap hero-inner">
         <a class="release-pill" href="https://github.com/UCKETX/NEMCBridge/releases/latest" target="_blank" rel="noopener" data-reveal>
           <span class="pill-tag">NEW</span>
-          <span data-release-label>v1.2.1 已发布 · 支持 Geyser 接入</span>
+          <span data-release-label>v1.4.0 已发布 · 国际服多版本与自动外观资源</span>
           <span aria-hidden="true">→</span>
         </a>
         <h1 data-reveal>
@@ -57,12 +57,12 @@
         </h1>
         <p class="lead" data-reveal>
           房主机器人常驻网易「本地联机」房间，把玩家接入你自己的 Bedrock 服务器。<br>
-          支持网易版通过 Geyser 接入 Java 服务器。
+          支持所列 1.21.120–26.60 后端构建，新增内容外观自动加载；也可通过 Geyser 接入 Java 服务器。
         </p>
         <div class="hero-cta" data-reveal>
           <a class="btn btn-primary btn-lg" href="docs.html#download" data-os-download>
             <svg class="btn-icon" viewBox="0 0 8 10" width="16" height="20" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M3 0h2v8H3zM0 3h1v2H0zm1 1h1v2H1zm1 1h1v2H2zm5-2h1v2H7zM6 4h1v2H6zM5 5h1v2H5zM0 9h8v1H0z"/></svg>
-            <span><span data-os-label>下载最新版</span><small data-version-label>v1.2.1 · 免安装单文件</small></span>
+            <span><span data-os-label>下载最新版</span><small data-version-label>v1.4.0 · 免安装单文件</small></span>
           </a>
           <a class="btn btn-ghost btn-lg" href="docs.html#start">
             <span>五分钟部署</span><span aria-hidden="true">→</span>
@@ -150,7 +150,7 @@
           <article class="card card-play" data-reveal>
             <i class="px-icon" data-icon="grass"></i>
             <h3>真正的共同游玩</h3>
-            <p>支持 BDS 与 Geyser 协议 860 原版方块表，可接入基岩版或 Java 服务器。区块加载、方块交互、双向聊天、皮肤互显与后端材质包同步，网易玩家按账号拥有独立存档。</p>
+            <p>网易 3.10 可连接多个版本的 BDS，不同房间可使用不同后端版本。地形、物品、配方与实体数据按协议转换，网易账号拥有独立存档，重连恢复服务端确认的 OP 权限。多版本支持仍属实验性，详见<a href="docs.html#compat">兼容范围</a>。</p>
             <div class="chat" aria-label="聊天示例">
               <div class="msg msg-l"><span class="tag tag-ne">网易</span><b>竹林小筑</b>今晚一起去下界吗？</div>
               <div class="msg msg-r"><span class="tag tag-intl">国际版</span><b>Steve</b>Sure! I'll bring the obsidian ⛏️</div>
@@ -207,6 +207,13 @@
             <i class="px-icon" data-icon="friends"></i>
             <h3>自动加好友</h3>
             <p>房间在线时每 30 秒检查并同意待处理的好友申请，失败独立退避，不影响房间。</p>
+          </article>
+
+          <article class="card" data-reveal>
+            <i class="px-icon" data-icon="grass"></i>
+            <h3>新版内容，自动加载外观</h3>
+            <p>白杨建筑、硫磺与朱砂、硫方怪、坐垫及 Bounce 唱片等已适配内容，由桥接按后端版本下载资源并缓存，玩家进服自动加载。服主无需往世界里放兼容包，也无需上传网易。</p>
+            <p><a href="docs.html#resources">了解资源加载与已知限制 →</a></p>
           </article>
 
           <article class="card card-term" data-reveal>

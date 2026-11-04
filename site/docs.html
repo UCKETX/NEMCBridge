@@ -49,6 +49,7 @@
           <a href="#start">快速开始</a>
           <a href="#download">下载</a>
           <a href="#compat">兼容性</a>
+          <a href="#resources">自动外观资源</a>
           <a href="#faq">常见问题</a>
           <a href="#changelog">更新日志</a>
         </nav>
@@ -73,7 +74,7 @@
           <li class="step" data-reveal>
             <span class="step-num">1</span>
             <h3>准备后端</h3>
-            <p>运行 BDS（已验证 <b>1.21.124.2</b>），在 <code>server.properties</code> 中设置：</p>
+            <p>运行<a href="#compat">支持版本的 BDS</a>（网易安卓已在 <b>26.20 / 26.60</b> 实机验证主要流程），在 <code>server.properties</code> 中设置：</p>
             <div class="code">
               <button class="copy" type="button" data-copy>复制</button>
 <pre><code><span class="k">online-mode</span>=<span class="v">false</span>
@@ -117,7 +118,7 @@ chmod +x NEMCBridge
             <span class="step-num">3</span>
             <h3>登录并开房</h3>
             <p>打开 <code>http://127.0.0.1:18321/</code>，用 <code>admin</code> 和终端显示的首次密码登录。填写 <a href="https://fgauth.ucket.top" target="_blank" rel="noopener">FGAuth 验证服务器</a>、你的机器人令牌和后端地址，保存后点击「开房」。</p>
-            <p>后端世界已启用的材质包会默认下发：网易玩家加入时自动使用内置经典材质预加载，再下载服务器材质，无需额外开关或手动导入。首次加入请等待下载和加载完成。</p>
+            <p>桥接会按后端版本自动下载、校验并缓存新版内容的兼容外观包，再下发给网易玩家。服主无需向 BDS 世界安装兼容包，玩家无需手动导入。后端已有的资源包也会转发；首次加入请等待下载和加载完成。</p>
             <div class="join">
               <div><span class="tag tag-ne">网易</span>「本地联机」搜索控制台显示的房间号</div>
               <div><span class="tag tag-intl">国际版</span>添加服务器：BDS 地址 + UDP 端口</div>
@@ -128,8 +129,8 @@ chmod +x NEMCBridge
         </section>
 
         <section class="doc-sec" id="download">
-          <h2><a href="#download">下载 <span data-version>v0.1.10</span></a></h2>
-          <p class="doc-lead"><span data-release-date>选择你的系统与架构。</span>每个压缩包都附带同名 <code>.sha256</code> 校验文件，解压即可运行。</p>
+          <h2><a href="#download">下载 <span data-version>v1.4.0</span></a></h2>
+          <p class="doc-lead"><span data-release-date>选择你的系统与架构。</span>解压即可运行；校验摘要与签名见公共仓库的 <a href="https://github.com/UCKETX/NEMCBridge/tree/main/release-metadata/v1.4.0/">release-metadata/v1.4.0</a>。</p>
         <div class="downloads" data-downloads>
           <a class="dl" data-reveal data-os="windows" data-arch="amd64"><span class="dl-os">Windows</span><span class="dl-arch">amd64</span><small>大多数 Intel / AMD 电脑</small><span class="dl-file"></span></a>
           <a class="dl" data-reveal data-os="windows" data-arch="arm64"><span class="dl-os">Windows</span><span class="dl-arch">arm64</span><small>骁龙等 ARM 设备</small><span class="dl-file"></span></a>
@@ -145,40 +146,49 @@ chmod +x NEMCBridge
 
         <section class="doc-sec" id="compat">
           <h2><a href="#compat">兼容性</a></h2>
-          <p class="doc-lead">网易客户端、房间版本与后端游戏协议需要分别匹配。以下组合已在 Windows 上完成真实客户端互通验证。</p>
-        <div class="compat">
-          <div class="spec" data-reveal>
-            <dl>
-              <div><dt>网易客户端</dt><dd>3.9.41.300665</dd></div>
-              <div><dt>网易房间版本</dt><dd>1.21.120.0</dd></div>
-              <div><dt>网易房间协议</dt><dd>42</dd></div>
-              <div><dt>Bedrock Dedicated Server</dt><dd>1.21.124.2</dd></div>
-              <div><dt>游戏协议</dt><dd>860</dd></div>
-              <div><dt>国际版客户端</dt><dd>Bedrock 1.21.124</dd></div>
-            </dl>
+          <p class="doc-lead">v1.4.0 面向网易 3.10，国际服侧提供实验性多版本转换。版本覆盖不等于全部玩法已逐项实测。</p>
+          <div class="compat">
+            <div class="spec" data-reveal><dl>
+              <div><dt>网易客户端基线</dt><dd>3.10.5.301327</dd></div>
+              <div><dt>网易房间内核</dt><dd>1.21.130.0 · 游戏协议 898</dd></div>
+              <div><dt>BDS 构建范围</dt><dd>所列 1.21.120–26.60 构建</dd></div>
+              <div><dt>后端协议</dt><dd>859 / 860 / 898 / 924 / 944 / 975 / 1001 / 2168 / 2169 / 2193 / 2225</dd></div>
+              <div><dt>安卓实机重点验证</dt><dd>26.20 / 26.60</dd></div>
+              <div><dt>国际版直连</dt><dd>客户端仍需匹配后端版本</dd></div>
+            </dl></div>
+            <div class="checks" data-reveal>
+              <h3>已验证的主要流程</h3>
+              <ul class="list-ok">
+                <li>进入世界、地形加载、背包与主要建筑交互</li>
+                <li>新增物品配方、燃料、容器、展示框及盆栽</li>
+                <li>资源自动下载、缓存及重新进服加载</li>
+                <li>独立账号存档、重连恢复服务端确认的 OP 权限</li>
+                <li>硫方怪内芯、装桶，以及 Bounce 播放与停播</li>
+              </ul>
+              <h3>仍有兼容限制</h3>
+              <ul class="list-warn">
+                <li>白杨船放下后采用白桦船体；稻草床可能短暂显示红床</li>
+                <li>层架蘑菇弹跳为近似补偿，部分区域移动抽动仍待完善</li>
+                <li>硫方怪 TNT 闪白与膨胀未启用；冰系与唱片压制机界面不在本版范围</li>
+                <li>任意行为包、脚本、复杂 UI 与自定义皮肤不保证兼容</li>
+              </ul>
+            </div>
           </div>
-          <div class="checks" data-reveal>
-            <h3>已验证</h3>
-            <ul class="list-ok">
-              <li>地形与子区块加载、走动、破坏和放置方块</li>
-              <li>普通成员权限，OP 降回成员后保留建造能力</li>
-              <li>按网易账号隔离存档，改名重连保留背包与位置</li>
-              <li>双向文字聊天（含中文与 emoji）</li>
-              <li>命令转发与回执，错误命令后保持连接</li>
-              <li>玩家皮肤互显</li>
-              <li>服务器材质包下载、多个包和多分片传输，缓存后重新进服</li>
-              <li>最大 32 MiB 解压批次与超过 255 个 WebRTC 分片</li>
-            </ul>
-            <h3>当前限制</h3>
-            <ul class="list-warn">
-              <li>行为包、脚本、自定义实体及复杂 UI 的兼容性需逐项验证</li>
-              <li>商城、4D、动画或自定义几何皮肤不保证兼容</li>
-              <li>重新开房后房间号可能变化</li>
-              <li>不支持 Java 版客户端</li>
-            </ul>
-          </div>
-        </div>
-        <p class="more"><a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/resource-packs.md" target="_blank" rel="noopener">材质包配置与加载说明</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility.md" target="_blank" rel="noopener">完整兼容性说明</a></p>
+          <p>Geyser 路径仅支持协议 859 / 860 / 898 的原版顺序方块表，不能直接套用上述 BDS 范围。Java 玩家直连 Java 服务端，NEMCBridge 本身不接收 Java 客户端连接。</p>
+          <p class="more"><a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/multiversion.md">具体构建与版本表</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility-status-26.60.md">完整适配状态清单</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility.md">验证范围</a></p>
+        </section>
+
+        <section class="doc-sec" id="resources">
+          <h2><a href="#resources">自动外观资源</a></h2>
+          <p class="doc-lead">玩家进服自动加载，服主无需手动放兼容包。</p>
+          <ol>
+            <li>桥接识别房间的后端协议，选择对应的已发布外观资源包。</li>
+            <li>首次使用时联网下载，检查大小和 SHA-256，再存入数据目录的 <code>cache/appearance/</code>。</li>
+            <li>网易玩家加入时，由桥接完成资源协商与下发；有效缓存可重复使用，无需每次重新从 GitHub 下载。</li>
+          </ol>
+          <p>兼容外观包独立于可执行文件发布，不需要上传网易，也不需要导入开发工具。国际版玩家直接连接 BDS，不经过这条下发路径，不会因此多出一套新增物品。</p>
+          <p>服务器自己的资源包仍需由服主在后端安装并启用。自动兼容包只补齐已适配内容，并不代表任意资源包、行为包和实验功能均可运行，也不会自动开启世界实验。</p>
+          <p class="more"><a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/resource-packs.md">资源包配置、缓存与排错 →</a></p>
         </section>
 
         <section class="doc-sec" id="faq">
@@ -202,7 +212,7 @@ chmod +x NEMCBridge
           </details>
           <details data-reveal>
             <summary>如何让网易玩家加载服务器材质包？</summary>
-            <p>使用 v0.1.7 或更新版本，在 BDS 世界中安装并启用目标材质包即可。NEMCBridge 默认自动完成经典材质预加载和后端资源下载，无需创建原生房间或导入配置。更新包后同步提高 manifest 和世界引用版本，重启后端并重新开房。加载失败或界面异常时，参阅<a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/resource-packs.md" target="_blank" rel="noopener">资源包说明</a>；复杂 UI、行为包及脚本仍需单独验证。</p>
+            <p>v1.4.0 的新版内容兼容包由桥接自动下载和下发，详见<a href="#resources">自动外观资源</a>。如果是你自己选择的服务器材质包，仍需在 BDS 世界中安装并启用；更新后提高包与世界引用的版本，并重启后端、重新开房。复杂 UI、行为包及脚本需单独验证。</p>
           </details>
           <details data-reveal>
             <summary>需要自己准备哪些东西？</summary>
@@ -219,7 +229,11 @@ chmod +x NEMCBridge
           <h2><a href="#changelog">更新日志</a></h2>
         <ol class="timeline">
           <li data-reveal>
-            <div class="tl-head"><span class="tl-ver">v0.1.8</span><span class="tl-title">控制台一键更新</span><span class="tl-badge">最新</span></div>
+            <div class="tl-head"><span class="tl-ver">v1.4.0</span><span class="tl-title">国际服多版本与自动外观资源</span><span class="tl-badge">最新</span></div>
+            <ul><li>覆盖所列 1.21.120–26.60 后端构建，按协议转换游戏数据</li><li>兼容资源包按需下载、校验和缓存，玩家进服自动加载</li><li>补齐新增内容外观、配方、燃料与主要交互，修复重连丢 OP</li><li><a href="https://github.com/UCKETX/NEMCBridge/releases/tag/v1.4.0">查看完整发布说明与已知限制</a></li></ul>
+          </li>
+          <li data-reveal>
+            <div class="tl-head"><span class="tl-ver">v0.1.8</span><span class="tl-title">控制台一键更新</span></div>
             <ul>
               <li>控制台一键更新：自动检查新版本，下载、校验后自动重启</li>
               <li>GitHub 连不上时自动改用内置加速镜像</li>
