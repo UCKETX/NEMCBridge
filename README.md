@@ -47,7 +47,7 @@ flowchart LR
 
 ### 1. 准备后端
 
-运行自己的 Bedrock Dedicated Server（BDS）。网易侧适配协议 898，国际服侧支持 **1.21.130.4**，并实验性支持所列 **1.21.120–26.60** 构建（版本表见[多版本说明](docs/multiversion.md)），在 `server.properties` 中设置：
+运行自己的 Bedrock Dedicated Server（BDS）或已适配的其他基岩服务端。网易侧适配协议 898，国际服侧支持 **1.21.130.4**，并实验性支持所列 **1.21.120–26.60** 构建（版本表见[多版本说明](docs/multiversion.md)），在 `server.properties` 中设置：
 
 ```properties
 online-mode=false
@@ -97,7 +97,7 @@ chmod +x NEMCBridge
 
 网易端默认使用内置组件预加载（不激活经典材质）并下载后端资源，无需勾选开关或手动导入配置。历史网易 3.9 的普通自制贴图及现有服务器的 7 个资源包曾在 iOS 实测正常，新版资源效果仍需复验；配置方法见[资源包说明](docs/resource-packs.md)。行为包、脚本及其他自定义内容仍有兼容限制。Java 版客户端不在支持范围内。
 
-完整边界见 [兼容性说明](docs/compatibility.md)。
+Geyser 支持所列 859–2225 全部协议档位；其他主流基岩服务端的已验证组合、Nukkit 必要配置及 LeviLamina 版本限制见[服务端兼容范围](docs/server-compatibility.md)。完整边界见 [兼容性说明](docs/compatibility.md)。
 
 ## 更新
 

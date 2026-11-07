@@ -38,13 +38,28 @@ block-network-ids-are-hashes=true
 
 ### Purpur / Paper + Geyser（实验性）
 
-Geyser 必须支持并在探测响应中声明 **898 / 1.21.130** 、**860 / 1.21.124** 或 **859 / 1.21.120–1.21.123**。已独立核对 Geyser 的 `block_palette.1_21_130.nbt` 与历史 860 原版方块表字节一致（来源见[适配记录](netease-3.10.md)），其原版顺序方块 ID 会在收到 StartGame 时自动识别并双向转换，无需在桥接中增加开关。多协议代理必须接受自己声明的协议，桥接暂不遍历尝试代理支持的其他版本。不要在 Java 的 `server.properties` 中添加 `block-network-ids-are-hashes`；该选项只对 BDS 有效。
+Geyser 必须在探测响应中声明已支持的协议：859、860、898、924、944、975、1001、2168、2169、2193 或 2225，对应 1.21.120–26.60 的已列版本。桥接按连接选择固定版本的原版顺序方块表，自动转换区块、更新、物品、配方、实体方块 metadata 和玩家交互。多协议代理必须接受自己声明的协议，桥接暂不遍历尝试其余版本。不要在 Java 的 `server.properties` 中添加 `block-network-ids-are-hashes`；该选项只对 BDS 有效。
 
-桥接目标填写 Geyser 的基岩版 **UDP** 地址和端口，例如 `127.0.0.1:19132`，不能填写 Java TCP 端口。Geyser 需要允许无 Xbox 签名的代理登录，并配置相应的 Java 认证入口。若使用离线入口，则 Geyser 的 `remote.auth-type`（新版为 `java.auth-type`）设为 `offline`，单机 Java 后端 `online-mode=false`。这会关闭该 Java 后端的正版认证；保留 Java 正版入口需要独立配置代理与认证。Geyser UDP 离线入口应只允许可信桥接机器访问。
+桥接目标填写 Geyser 的基岩版入口，不能填写 Java 游戏 TCP 端口：
 
-当前转换覆盖区块和子区块的方块调色板、单个及批量方块更新、物品栏与装备、配方和创造物品栏、方块实体元数据以及玩家物品交互。生物群系、NBT、区块索引及物品额外数据保持原始字节。顺序模式暂不支持自定义方块表或区块 blob 缓存；Geyser 的普通区块传输不使用该缓存，网易客户端仍可发送自己的缓存能力声明。
+- RakNet：`主机:UDP端口`，例如 `127.0.0.1:19132`。
+- NetherNet：内置信令的 `http://主机:端口` 或已配置 TLS 的 `https://主机:端口`。本轮新版 Geyser 使用此入口；信令端口及 `bedrock.webrtc-port` 对应的 UDP 端口均须可达，`bedrock.signaling.advertise-addresses` 应声明桥接可访问的地址。
 
-已通过协议与回归测试；历史协议 860 曾由用户确认实机进服，协议 898 的 Geyser 实机验收仍待完成。Geyser 旧版 `TagCache.java:97` 的标签空指针属于另一项已知问题，官方修复为 [#6325](https://github.com/GeyserMC/Geyser/pull/6325)；应选用同时支持协议 898 且包含修复的构建。
+Geyser 需要允许桥接的离线 Bedrock 身份。新版配置：
+
+```yaml
+advanced:
+  bedrock:
+    validate-bedrock-login: false
+gameplay:
+  enable-custom-content: false
+```
+
+关闭自定义内容后仍保留新版原版数据驱动方块的声明；桥接只接受与固定来源完全一致的原版定义，并使用已有新版外观/替代映射。自定义方块、扩展添加的顺序表和 blob 区块缓存仍不支持；检测到不兼容定义会明确报错。
+
+若使用 Java 离线入口，Geyser 的 `java.auth-type`（更早版本为 `remote.auth-type`）设为 `offline`，Java 后端 `online-mode=false`；保留 Java 正版入口需要独立配置认证。关闭 Bedrock 身份验证的 Geyser 入口应只允许可信桥接机器访问。
+
+2026-11-07 已用 5 个官方 Geyser 构建和独立 Purpur 世界验证全部 11 档协议，共 22 条直连/WebRTC 链路，覆盖登录、完整地形、中文聊天及连续动作后的命令回执，详见[多版本验证](multiversion.md#geyser-验证2026-11-07)。这是合成网易 898 客户端测试；真实网易客户端的渲染、挖放、背包和骑乘仍需实机验收。旧版 Geyser `TagCache.java:97` 标签空指针的官方修复为 [#6325](https://github.com/GeyserMC/Geyser/pull/6325)，旧版构建遇到该问题应先升级 Geyser。
 
 攻击或切换物品时出现的大型冷却提示由 Geyser 提供。可在 `plugins/Geyser-Spigot/config.yml` 的 `gameplay` 下将 `show-cooldown` 设为 `disabled`，或设为 `actionbar` 移到快捷栏上方，保存并重启 Geyser 后重新进服。黑色文字背景可在客户端「设置 → 无障碍 → 文字背景不透明度」调为 0；这些选项只影响显示，不改变 Java 后端的攻击冷却。
 
@@ -205,3 +220,7 @@ Ctrl+C、SIGTERM 或网页的退出功能会正常关闭房间。停止房间不
 ### 26.60 后端地址
 
 26.60 使用 NetherNet。在 BDS 中设置 `transport=nethernet`，桥接的服务器地址填写 `http://主机:信令端口`，并允许 BDS 配置的 UDP 媒体端口供桥接访问。同机部署可填写 `http://127.0.0.1:19132`。无需修改网易房间版本，也无需把兼容资源包放入 BDS。旧版 RakNet 仍使用 `主机:端口`。详细验证范围见[多版本支持](multiversion.md#26302660-验证2026-11-02)。
+
+## 其他基岩服务端
+
+固定构建和历史协议验证见[服务端兼容性报告](server-compatibility.md)。在管理界面编辑国际服时，Nukkit 2168+ 选择 Nukkit 兼容配置；其他实现默认自动。配置文件对应字段为服务器条目的 `"compatibility_profile": "nukkit"`，空值或 `"auto"` 表示默认。此项只处理 Nukkit 的物品方块编号差异，不改变后端版本探测；不要给其他实现套用。
