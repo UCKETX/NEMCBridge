@@ -82,6 +82,7 @@
 <span class="k">block-network-ids-are-hashes</span>=<span class="v">true</span></code></pre>
             </div>
             <p class="note">后端使用离线身份，请自行配置防火墙与访问权限。</p>
+            <p class="note">26.50 / 26.60 的已测 BDS 使用 NetherNet，需设置 <code>transport=nethernet</code>，桥接地址填写 <code>http://主机:信令端口</code>，并放通对应 UDP 端口；旧版 RakNet 仍填写 <code>主机:UDP端口</code>。Geyser 和其他实现请按<a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/setup.md">完整部署指南</a>及下方<a href="#compat">兼容性说明</a>配置。</p>
           </li>
 
           <li class="step" data-reveal>
@@ -129,8 +130,8 @@ chmod +x NEMCBridge
         </section>
 
         <section class="doc-sec" id="download">
-          <h2><a href="#download">下载 <span data-version>v1.4.0</span></a></h2>
-          <p class="doc-lead"><span data-release-date>选择你的系统与架构。</span>解压即可运行；校验摘要与签名见公共仓库的 <a href="https://github.com/UCKETX/NEMCBridge/tree/main/release-metadata/v1.4.0/">release-metadata/v1.4.0</a>。</p>
+          <h2><a href="#download">下载 <span data-version>v1.4.1</span></a></h2>
+          <p class="doc-lead"><span data-release-date>选择你的系统与架构。</span>解压即可运行；校验摘要与签名见公共仓库的 <a href="https://github.com/UCKETX/NEMCBridge/tree/main/release-metadata/">release-metadata</a> 中与下载版本对应的目录。</p>
         <div class="downloads" data-downloads>
           <a class="dl" data-reveal data-os="windows" data-arch="amd64"><span class="dl-os">Windows</span><span class="dl-arch">amd64</span><small>大多数 Intel / AMD 电脑</small><span class="dl-file"></span></a>
           <a class="dl" data-reveal data-os="windows" data-arch="arm64"><span class="dl-os">Windows</span><span class="dl-arch">arm64</span><small>骁龙等 ARM 设备</small><span class="dl-file"></span></a>
@@ -146,7 +147,7 @@ chmod +x NEMCBridge
 
         <section class="doc-sec" id="compat">
           <h2><a href="#compat">兼容性</a></h2>
-          <p class="doc-lead">v1.4.0 面向网易 3.10，国际服侧提供实验性多版本转换。版本覆盖不等于全部玩法已逐项实测。</p>
+          <p class="doc-lead">v1.4.1 面向网易 3.10，国际服侧提供实验性多版本转换。以下为 2026-11-07 发布验证范围，版本覆盖不等于全部玩法已逐项实测。</p>
           <div class="compat">
             <div class="spec" data-reveal><dl>
               <div><dt>网易客户端基线</dt><dd>3.10.5.301327</dd></div>
@@ -155,7 +156,8 @@ chmod +x NEMCBridge
               <div><dt>后端协议</dt><dd>859 / 860 / 898 / 924 / 944 / 975 / 1001 / 2168 / 2169 / 2193 / 2225</dd></div>
             </dl></div>
             <div class="checks" data-reveal>
-              <h3>已验证的主要流程</h3>
+              <h3>BDS 已验证的主要流程</h3>
+              <p>以下包含网易安卓在 BDS 26.20 / 26.60 上的主要流程反馈，不代表所有后端或版本均通过实机验收。</p>
               <ul class="list-ok">
                 <li>进入世界、地形加载、背包与主要建筑交互</li>
                 <li>新增物品配方、燃料、容器、展示框及盆栽</li>
@@ -172,8 +174,20 @@ chmod +x NEMCBridge
               </ul>
             </div>
           </div>
-          <p>Geyser 路径仅支持协议 859 / 860 / 898 的原版顺序方块表，不能直接套用上述 BDS 范围。Java 玩家直连 Java 服务端，NEMCBridge 本身不接收 Java 客户端连接。</p>
-          <p class="more"><a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/multiversion.md">具体构建与版本表</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility-status-26.60.md">完整适配状态清单</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility.md">验证范围</a></p>
+          <h3>Geyser（实验性）</h3>
+          <p>已验证协议 859 / 860 / 898 / 924 / 944 / 975 / 1001 / 2168 / 2169 / 2193 / 2225 的原版顺序方块表，覆盖所列 1.21.120–26.60 版本。5 个官方 Geyser 构建配合独立 Purpur 后端，11 档协议的直连与 WebRTC 共 22 条链路通过登录、资源协商、世界与完整区块、创造物品注册、中文/emoji 聊天及连续动作后的命令回执验证。</p>
+          <p>测试关闭了 Geyser 自定义内容、集成资源包与 Bedrock 正版验证，并使用 Java 离线认证。桥接目标应填写 Geyser 基岩入口；Geyser 须接受探测响应中声明的协议，生产连接不会遍历协商其他版本。任意自定义方块、扩展顺序表及 blob 缓存仍不支持。Java 玩家直连 Java 服务端，NEMCBridge 本身不接收 Java 客户端连接。</p>
+          <h3>其他基岩服务端</h3>
+          <p>以下固定构建均通过直连与 WebRTC 的登录、资源协商、地形、聊天、背包创造取物、槽位转移和重连保存验证；Dragonfly 未断言通用命令系统。历史构建主要验证世界与聊天基线，不能一概视为完整背包回归通过。</p>
+          <ul>
+            <li>协议 1001：Allay 0.14.0、PocketMine-MP 5.44.3；这两个已测构建不支持更高协议。</li>
+            <li>协议 2225：PowerNukkitX 3.0.6、Nukkit snapshot 1252、Nukkit-MOT 1766、Cloudburst snapshot 162、Dragonfly（报告固定提交）。</li>
+            <li>协议 2225：Endstone 0.11.15 + BDS 26.60.6、LeviLamina 26.60.4 + Windows BDS 26.60.6。</li>
+          </ul>
+          <p>Nukkit 2168+ 需在国际服设置中选择「Nukkit」兼容配置，或为该服务端设置 <code>compatibility_profile: "nukkit"</code>；默认 <code>auto</code> 不会主动套用此差异。其他实现按各自配置方式设置，不应直接套用全部 BDS 选项。</p>
+          <p>部分历史构建存在例外：Cloudburst 924 无法启动，944 / 975 / 2193 存在上游聊天故障；旧 PowerNukkitX 2.0.0 官方产物实际声明协议 1001，不能作为 975 通过的证据。LeviLamina 已验证 8 档官方组合及背包重连；924（26.0）和 2169（26.45）无匹配官方发行组合，未实服验证，不计为通过或桥接失败。</p>
+          <p class="note">上述 Geyser 与其他服务端自动化测试主要使用合成网易 898 协议客户端连接真实服务端，不能替代真实网易手机客户端验收。Geyser 的渲染、移动、挖放、背包与骑乘仍待实机验收；其他实现也尚未逐版本覆盖合成、碰撞、实体交互、强制资源包及第三方内容。已有 BDS 手机反馈不能推定为其他服务端也已通过。</p>
+          <p class="more"><a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/multiversion.md">具体构建与版本表</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/server-compatibility.md">服务端兼容范围与必要配置</a> · <a href="https://github.com/UCKETX/NEMCBridge-src/blob/main/docs/server-compatibility.md">v1.4.1 详细验证报告</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility-status-26.60.md">完整适配状态清单</a> · <a href="https://github.com/UCKETX/NEMCBridge/blob/main/docs/compatibility.md">验证范围</a></p>
         </section>
 
         <section class="doc-sec" id="resources">
@@ -210,11 +224,11 @@ chmod +x NEMCBridge
           </details>
           <details data-reveal>
             <summary>如何让网易玩家加载服务器材质包？</summary>
-            <p>v1.4.0 的新版内容兼容包由桥接自动下载和下发，详见<a href="#resources">自动外观资源</a>。如果是你自己选择的服务器材质包，仍需在 BDS 世界中安装并启用；更新后提高包与世界引用的版本，并重启后端、重新开房。复杂 UI、行为包及脚本需单独验证。</p>
+            <p>新版内容兼容包由桥接自动下载和下发，详见<a href="#resources">自动外观资源</a>。如果是你自己选择的服务器材质包，仍需在 BDS 世界中安装并启用；更新后提高包与世界引用的版本，并重启后端、重新开房。复杂 UI、行为包及脚本需单独验证。</p>
           </details>
           <details data-reveal>
             <summary>需要自己准备哪些东西？</summary>
-            <p>你需要自行运行 Bedrock Dedicated Server 和世界，并准备 FGAuth 验证服务器及属于自己的房主机器人令牌。本项目不附带账号、令牌或服务器程序。令牌会发送到你所选的验证服务，请使用自己信任的服务。</p>
+            <p>你需要自行运行兼容的基岩服务端，或 Java 服务端与 Geyser，并准备 FGAuth 验证服务器及属于自己的房主机器人令牌。本项目不附带账号、令牌或服务器程序。令牌会发送到你所选的验证服务，请使用自己信任的服务。</p>
           </details>
           <details data-reveal>
             <summary>如何远程管理服务器上的 NEMCBridge？</summary>
@@ -227,7 +241,11 @@ chmod +x NEMCBridge
           <h2><a href="#changelog">更新日志</a></h2>
         <ol class="timeline">
           <li data-reveal>
-            <div class="tl-head"><span class="tl-ver">v1.4.0</span><span class="tl-title">国际服多版本与自动外观资源</span><span class="tl-badge">最新</span></div>
+            <div class="tl-head"><span class="tl-ver">v1.4.1</span><span class="tl-title">主流基岩服务端兼容修复</span><span class="tl-badge">最新</span></div>
+            <ul><li>Geyser 原版顺序方块表扩展至所列全部 11 档协议，22 条直连/WebRTC 链路通过基础验证</li><li>新增 Nukkit 2168+ 兼容配置，修复物品方块编号差异</li><li>修复现代登录与聊天身份、增量物品注册表、空气物品读取、PocketMine 地形高度、PNX 子区块及旧 Cloudburst 明文转换</li><li>补充 9 种基岩服务端固定构建与历史协议验证；合成客户端结果不等于全部真实手机验收通过</li><li><a href="https://github.com/UCKETX/NEMCBridge/releases/tag/v1.4.1">查看完整发布说明与已知限制</a></li></ul>
+          </li>
+          <li data-reveal>
+            <div class="tl-head"><span class="tl-ver">v1.4.0</span><span class="tl-title">国际服多版本与自动外观资源</span></div>
             <ul><li>覆盖所列 1.21.120–26.60 后端构建，按协议转换游戏数据</li><li>兼容资源包按需下载、校验和缓存，玩家进服自动加载</li><li>补齐新增内容外观、配方、燃料与主要交互，修复重连丢 OP</li><li><a href="https://github.com/UCKETX/NEMCBridge/releases/tag/v1.4.0">查看完整发布说明与已知限制</a></li></ul>
           </li>
           <li data-reveal>
