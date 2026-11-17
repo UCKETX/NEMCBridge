@@ -143,7 +143,7 @@ Allay、PowerNukkitX、Nukkit、Nukkit-MOT、PocketMine-MP、Cloudburst、Dragon
 
 ## 独立外观验证包（可选）
 
-已加入 0.1.0 金蒲公英原生外观验证包，源码及构建/安装步骤见 [addons/netease_new_content/README.md](../addons/netease_new_content/README.md)。它包含官方贴图、独立网易方块定义、交叉面模型和本地化名称，使用 `nemcbridge:golden_dandelion`，不覆盖普通蒲公英。
+已加入 0.1.0 金蒲公英原生外观验证包；当前版本的自动资源与已知限制见[适配清单](compatibility-status-26.60.md)。它包含官方贴图、独立网易方块定义、交叉面模型和本地化名称，使用 `nemcbridge:golden_dandelion`，不覆盖普通蒲公英。
 
 只有导入的原生 ResourceProfile 同时包含匹配的资源 UUID、版本和方块定义时，944/975 才将金蒲公英注册名改为原生别名，保留后端物品编号，并映射对应方块哈希。匹配的包缺少世界定义时明确报错；未安装组件时继续使用上面的普通蒲公英降级。不修改后端世界或给 BDS 安装网易行为包。
 
@@ -382,7 +382,7 @@ Go 相关包单测、vet 通过，覆盖全部补偿对象、无关对象不变�
 附魔及状态效果均与原版耗时相同；标量补偿的工具速度限制继续保留。
 
 使用 `python3 scripts/audit_content_coverage.py` 对照固定的 1.21.130 / 26.60
-方块及物品表，结果见 [完整清单](content-coverage-26.60.json)。报告记录输入 SHA256，
+方块及物品表，用户可见的适配范围见[适配清单](compatibility-status-26.60.md)。内部报告记录输入 SHA256，
 可重复检查新物品遗漏、方块状态遗漏、旧调色板目标有效性、哈希碰撞及独立模型状态别名覆盖。
 本次 185 个新增物品、159 个新增方块名、8684 个新增方块状态均有基础映射；
 144 个独立世界方块定义无遗漏状态。该统计是静态覆盖，不代表实机交互全部通过。

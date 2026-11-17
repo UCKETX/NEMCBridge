@@ -1,5 +1,6 @@
 {
   "auth_server": "https://fgauth.ucket.top",
+  "transfer_address": "",
   "upstream": "127.0.0.1:19132",
   "room_name": "来和我一起玩吧！",
   "room_game_version": "1.21.130.0",
@@ -13,5 +14,12 @@
   "web_port": 18321,
   "retry_seconds": 10,
   "debug": false,
-  "check_updates": true
+  "check_updates": true,
+  "servers": [
+    {
+      "name": "国际服",
+      "address": "127.0.0.1:19132",
+      "auto_transfer": false
+    }
+  ]
 }
