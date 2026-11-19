@@ -1,4 +1,24 @@
-# 网易资源包
+# 资源包
+
+## 国际版 4D 皮肤资源包（选装）
+
+服主可为 BDS 世界选装已适配的 4D 模型包。国际基岩版直连玩家接受下载后，可看到包中已适配并绑定到对应玩家名的模型。NEMCBridge 安装包不附带模型文件。网易玩家仍使用原生 4D 外观，桥接会按包 UUID 自动跳过此专用包。
+
+1. 将已有的兼容 `.mcpack` 解压到 BDS 的 `resource_packs/` 下。确认包目录的第一层就能找到 `manifest.json`。
+2. 在 `worlds/<level-name>/world_resource_packs.json` 的数组中追加这一项，保留原有条目。用包内 `manifest.json` 的 `header.uuid` 和 `header.version` 填写。下面以荆棘骑士原型 0.0.7 为例。
+
+   ```json
+   [
+     {
+       "pack_id": "933d3050-e71b-55fa-a0ea-34e3788ccfd2",
+       "version": [0, 0, 7]
+     }
+   ]
+   ```
+
+3. 在 BDS 的 `server.properties` 中设置 `texturepack-required=false`，允许国际版玩家自行选择是否下载。重启 BDS，然后重开桥接房间。国际版玩家重新加入后按需接受下载。
+
+同一 UUID 只启用一个版本。该功能覆盖包内已适配的模型，批量外观和原生特效仍在适配中。
 
 ## 新版内容兼容资源（v1.4.0）
 
