@@ -11,6 +11,7 @@ NEMCBridge 程序包含下列第三方组件，各组件保留其原有许可。
 | [go-nethernet](https://github.com/df-mc/go-nethernet) v1.0.26 | 新版 BDS NetherNet 信令和传输 | MIT |
 | [go-raknet](https://github.com/Sandertv/go-raknet) | RakNet 连接 | MIT |
 | [GeyserMC/Geyser](https://github.com/GeyserMC/Geyser) `dbed595` | 协议 860 原版顺序方块 ID 与哈希 ID 对照数据 | MIT，见 `THIRD_PARTY_LICENSES.md` |
+| [xxhash/v2](https://github.com/cespare/xxhash) v2.3.0 | 区块缓存指纹（XXH64） | MIT |
 | [Pion](https://github.com/pion) | WebRTC、DTLS、ICE、SCTP 等 | MIT |
 | Go 扩展库（`golang.org/x/crypto`、`net`、`sys`） | 加密与系统接口 | BSD-3-Clause |
 | 其他依赖 | 压缩、编码、UUID 等 | 见 `THIRD_PARTY_LICENSES.md` |
