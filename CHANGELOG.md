@@ -2,6 +2,11 @@
 
 详细发行说明见 [Releases](https://github.com/UCKETX/NEMCBridge/releases)。
 
+## v1.5.5 — 2026-11-23
+
+- 修复重进时的区块缓存兼容断线及 Geyser 暂停菜单重复显示自己。
+- 新增默认关闭的访客资料直查和轻量转服入口。保留房间身份校验和固定 UDP 网关，不含单房选服。详见[发行说明](https://github.com/UCKETX/NEMCBridge/releases/tag/v1.5.5)。
+
 ## v1.5.4 — 2026-11-23
 
 普通房和转服使用大厅核验身份，保留原 UUID；修复区块缓存、附魔台、转服后箱子和床。OP 由后端管理；26.60 原生 OP 的持久化限制见[发行说明](docs/releases/v1.5.4.md)。
