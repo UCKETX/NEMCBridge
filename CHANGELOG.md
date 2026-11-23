@@ -2,6 +2,10 @@
 
 详细发行说明见 [Releases](https://github.com/UCKETX/NEMCBridge/releases)。
 
+## v1.5.4 — 2026-11-23
+
+普通房和转服使用大厅核验身份，保留原 UUID；修复区块缓存、附魔台、转服后箱子和床。OP 由后端管理；26.60 原生 OP 的持久化限制见[发行说明](docs/releases/v1.5.4.md)。
+
 ## v1.5.3 — 2026-11-21
 
 - 统一网易昵称的游戏内显示；本机直连 BDS 配合兼容的 FGAuth 支持原生玩家名核验，存档继续绑定稳定 UID。
