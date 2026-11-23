@@ -5,7 +5,7 @@
 ## v1.5.5 — 2026-11-23
 
 - 修复重进时的区块缓存兼容断线及 Geyser 暂停菜单重复显示自己。
-- 新增默认关闭的访客资料直查和轻量转服入口。保留房间身份校验和固定 UDP 网关，不含单房选服。详见[发行说明](https://github.com/UCKETX/NEMCBridge/releases/tag/v1.5.5)。
+- 访客资料默认由桥接直查；已开启 Beta 的房间自动使用轻量入口，无需配置环境变量。保留房间身份校验和固定 UDP 网关，不含单房选服。详见[发行说明](https://github.com/UCKETX/NEMCBridge/releases/tag/v1.5.5)。
 
 ## v1.5.4 — 2026-11-23
 
