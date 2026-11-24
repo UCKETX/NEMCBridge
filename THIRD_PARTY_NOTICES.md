@@ -1,6 +1,6 @@
 # 第三方组件与归属
 
-NEMCBridge 程序包含下列第三方组件，各组件保留其原有许可。从 v0.1.9 起，每个发布包附带的 `THIRD_PARTY_LICENSES.md` 收录了该平台程序实际编译进的全部第三方模块及其许可证原文。
+NEMCBridge 程序包含下列第三方组件，各组件保留其原有许可。从 v0.1.9 起，每个发布包附带的 `THIRD_PARTY_LICENSES.txt` 收录了该平台程序实际编译进的全部第三方模块及其许可证原文。
 
 ## 主要组件
 
@@ -10,11 +10,11 @@ NEMCBridge 程序包含下列第三方组件，各组件保留其原有许可。
 | [gophertunnel](https://github.com/Sandertv/gophertunnel) | Bedrock 协议 | MIT |
 | [go-nethernet](https://github.com/df-mc/go-nethernet) v1.0.26 | 新版 BDS NetherNet 信令和传输 | MIT |
 | [go-raknet](https://github.com/Sandertv/go-raknet) | RakNet 连接 | MIT |
-| [GeyserMC/Geyser](https://github.com/GeyserMC/Geyser) `dbed595` | 协议 860 原版顺序方块 ID 与哈希 ID 对照数据 | MIT，见 `THIRD_PARTY_LICENSES.md` |
+| [GeyserMC/Geyser](https://github.com/GeyserMC/Geyser) `dbed595` | 协议 860 原版顺序方块 ID 与哈希 ID 对照数据 | MIT，见 `THIRD_PARTY_LICENSES.txt` |
 | [xxhash/v2](https://github.com/cespare/xxhash) v2.3.0 | 区块缓存指纹（XXH64） | MIT |
 | [Pion](https://github.com/pion) | WebRTC、DTLS、ICE、SCTP 等 | MIT |
 | Go 扩展库（`golang.org/x/crypto`、`net`、`sys`） | 加密与系统接口 | BSD-3-Clause |
-| 其他依赖 | 压缩、编码、UUID 等 | 见 `THIRD_PARTY_LICENSES.md` |
+| 其他依赖 | 压缩、编码、UUID 等 | 见 `THIRD_PARTY_LICENSES.txt` |
 
 ## nemc-tan-lobby-solver
 
