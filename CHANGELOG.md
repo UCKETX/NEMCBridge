@@ -2,6 +2,12 @@
 
 详细发行说明见 [Releases](https://github.com/UCKETX/NEMCBridge/releases)。
 
+## v1.6.1-beta.1 — 2026-11-26
+
+- 新增网易玩家真实 IP 透传（[#3](https://github.com/UCKETX/NEMCBridge/issues/3)）：自动在后端登录 `ClientData` 注入防伪造的 `ClientIP` / `ClientPort`，登录前原子更新 `logs/player_ips.json`，并在 `logs/keeper.log` 记录玩家来源地址；自动转服配合 FRP 穿透时保留入口 WebRTC 公网地址，远程 TURN 中继不误报中继节点 IP。
+- 新增按国际服可选开启的 UDP HAProxy PROXY Protocol v2（`proxy_protocol`），支持 Geyser 等兼容后端零插件读取真实 IP（含 IPv6 玩家连入 IPv4 后端）。
+- 更新控制台与文档的官网链接至 `https://nemcbridge.ucket.top/`；详见[发行说明](docs/releases/v1.6.1-beta.1.md)。
+
 ## v1.6.0 — 2026-11-25
 
 - 新增游戏内选服大厅、单房多服绑定、服务器在线状态提示，以及控制台概览和运行日志改版。

@@ -7,48 +7,61 @@
 <p align="center">让网易版与国际版 Bedrock 玩家，在同一个世界相遇。</p>
 
 <p align="center">
-  <a href="https://ucketx.github.io/NEMCBridge/">项目官网</a> ·
-  <a href="https://github.com/UCKETX/NEMCBridge/releases/latest">下载版本</a> ·
-  <a href="docs/setup.md">部署指南</a> ·
+  <a href="https://nemcbridge.ucket.top/">项目官网</a> ·
+  <a href="https://nemcbridge.ucket.top/wiki/">中文文档</a> ·
+  <a href="https://github.com/UCKETX/NEMCBridge/releases/latest">下载正式版</a> ·
+  <a href="https://github.com/UCKETX/NEMCBridge/releases">全部版本</a> ·
   <a href="docs/compatibility.md">兼容范围</a> ·
   <a href="https://github.com/UCKETX/NEMCBridge/issues">问题反馈</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/UCKETX/NEMCBridge/releases/latest"><img src="https://img.shields.io/github/v/release/UCKETX/NEMCBridge?color=8b5cf6" alt="最新版本"></a>
+  <a href="https://github.com/UCKETX/NEMCBridge/releases/latest"><img src="https://img.shields.io/github/v/release/UCKETX/NEMCBridge?color=8b5cf6" alt="最新正式版"></a>
+  <a href="https://github.com/UCKETX/NEMCBridge/releases"><img src="https://img.shields.io/github/v/release/UCKETX/NEMCBridge?include_prereleases&label=pre-release&color=f59e0b" alt="最新预发布版"></a>
   <a href="https://github.com/UCKETX/NEMCBridge/releases"><img src="https://img.shields.io/github/downloads/UCKETX/NEMCBridge/total?color=35d3dc" alt="下载次数"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e" alt="MIT 许可证"></a>
 </p>
 
-## 它能做什么
+---
 
-NEMCBridge 通过 FGAuth 登录房主机器人，持续创建网易《我的世界》的「本地联机」房间，再将玩家连接转发到已有的 Bedrock 服务器。网易玩家从房间加入，国际版 Bedrock 玩家直接连接同一台服务器。
+## 简介
 
-- **共同游玩**：区块加载、方块破坏与放置、双向文字聊天和玩家皮肤互显。
-- **房主常驻**：机器人保持房间连接，掉线后自动重试开房；重新开房时房间号可能变化。
-- **多房间**：用多个机器人账号创建独立房间，不设房间和国际服数量上限；可连接同一国际服或不同版本的国际服。
-- **突破10人限制（Beta）**：原版客户端自动转服并释放大厅名额，多国际服共用一个固定 UDP 网关；超过 9 位访客同时在线尚未实测。见[网关配置](docs/handoff.md)。
-- **好友管理**：自动或手动处理好友申请，查看好友列表；支持通过 FGAuth 发送网易好友私信。
-- **多版本与自动外观**：实验性支持所列 1.21.120–26.60 后端；按协议自动下载、校验、缓存并下发兼容资源，服主和玩家无需手动导入。详见[多版本说明](docs/multiversion.md)及[适配清单](docs/compatibility-status-26.60.md)。
-- **网页管理**：内置带管理员登录的 Web 控制台，配置验证服务器、令牌、后端地址和房间参数，查看连接状态与日志。
-- **一键更新**：自动检查 GitHub 最新版本，在控制台点击即可下载、校验 SHA256 和 Ed25519 发布签名并重启到新版本；GitHub 连不上时自动改用内置加速镜像。
-- **终端启动界面**：蓝青色块字横幅，显示版本、访问地址和首次登录信息。
-- **跨平台部署**：Windows、Linux、macOS，分别提供 amd64 与 arm64 发布包。
-- **本地管理凭据**：Windows 使用 DPAPI 加密；Linux/macOS 以 `0600` 权限保存令牌。
+**NEMCBridge** 通过 FGAuth 登录房主机器人，常驻创建网易《我的世界》「本地联机」房间，并将网易玩家连接实时转换并转发到你自己的 Bedrock（或 Geyser + Java）服务器。网易玩家搜索房间号即可进入，国际版 Bedrock 玩家直接连接同一台服务器，无需在客户端安装模组或插件。
 
 ```mermaid
 flowchart LR
     N[网易版玩家] --> R[本地联机房间]
-    R --> L["NEMCBridge<br/>WebRTC ↔ RakNet · 协议转换"]
-    L --> B["Bedrock 服务器<br/>同一个世界"]
+    R --> L["NEMCBridge<br/>WebRTC ↔ RakNet / NetherNet · 协议转换"]
+    L --> B["Bedrock / Geyser 服务器<br/>同一个世界"]
     I[国际版 Bedrock 玩家] --> B
     F[FGAuth] -. 房主鉴权 .-> L
 ```
 
+## 核心特性
+
+### 互通与多服架构
+- **原版跨端互通**：支持区块加载、方块破坏与放置、双向聊天、玩家皮肤与已适配 4D 装扮互显，以及按稳定网易账号隔离后端离线存档。
+- **多房间与选服大厅**：不设房间和国际服数量上限；支持**选服大厅（单房多服）**，一个网易房间可接入 2–8 个国际服，游戏内带在线/离线状态提示并自动转服。
+- **突破 10 人限制（Beta）**：支持公网固定 UDP `19441` 网关自动转服与轻量入口，交接后自动释放网易大厅名额，多国际服共用单端口；超过 9 位访客同时在线尚未实测。详见[转服网关文档](docs/handoff.md)。
+- **跨版本与自动外观**：实验性支持所列 `1.21.120–26.60`（协议 `859–2225`）后端及 Purpur / Paper + Geyser；按后端协议自动下载、SHA256 校验、缓存并下发兼容资源包，无需手动导入。见[多版本说明](docs/multiversion.md)与[适配清单](docs/compatibility-status-26.60.md)。
+
+### 运维与安全能力
+- **玩家真实 IP 透传（v1.6.1-beta.1+）**：自动向后端 `Login` `ClientData` 写入防伪造的 `ClientIP` / `ClientPort`，同步原子更新 `logs/player_ips.json` 并在日志中记录来源地址；支持按国际服可选开启 **UDP HAProxy PROXY Protocol v2**（适配 Geyser 等兼容后端，无需改插件即可原生显示真实 IP）。
+- **Web 管理控制台**：内置管理员登录（首次启动使用终端一次性初始化码），集中管理国际服、选服大厅、网易账号、好友申请与私信、实时概览及可筛选/搜索/轮转的运行日志。
+- **签名校验一键更新**：支持在控制台自动检查、下载、校验 SHA256 与 Ed25519 发布签名并重启升级，GitHub 访问受限时自动切换内置加速镜像。
+- **跨平台开箱即用**：提供 Windows、Linux、macOS 的 `amd64` / `arm64` 单文件发布包；Windows 凭据使用 DPAPI 加密，Linux/macOS 以 `0600` 权限保护。
+
+---
+
 ## 快速开始
 
-### 1. 准备后端
+> 完整图文教程与运维手册请访问 **[中文 Wiki（nemcbridge.ucket.top）](https://nemcbridge.ucket.top/wiki/quick-start/)**。
 
-运行自己的 Bedrock Dedicated Server（BDS）或已适配的其他基岩服务端。网易侧适配协议 898，国际服侧支持 **1.21.130.4**，并实验性支持所列 **1.21.120–26.60** 构建（版本表见[多版本说明](docs/multiversion.md)），在 `server.properties` 中设置：
+### 1. 准备后端服务器
+
+运行你自己的 Bedrock Dedicated Server（BDS）、Purpur / Paper + Geyser 或其他已验证的基岩服务端。网易侧固定使用协议 `898`，国际服侧推荐 **BDS `1.21.130.4`**，并实验性支持所列 **`1.21.120–26.60`** 构建。
+
+在 BDS 的 `server.properties` 中设置：
 
 ```properties
 online-mode=false
@@ -56,65 +69,62 @@ compression-algorithm=zlib
 block-network-ids-are-hashes=true
 ```
 
-NEMCBridge 需要将玩家转为后端的离线身份，因此后端关闭 Xbox 正版登录校验；玩家身份不应被当作已认证的 Xbox 身份。请按自己的访问范围配置后端防火墙及权限。服务器程序和世界需要自行准备。
+> NEMCBridge 会将玩家映射为稳定的后端离线身份，因此后端需关闭 Xbox 正版校验；离线身份不代表 Xbox 认证，请合理配置防火墙和游戏权限。
 
 ### 2. 下载并启动
 
-从 [Releases](https://github.com/UCKETX/NEMCBridge/releases/latest) 下载对应平台和架构：
+前往 [Releases](https://github.com/UCKETX/NEMCBridge/releases/latest)（或 [全部版本](https://github.com/UCKETX/NEMCBridge/releases) 获取 Beta 预发布版）下载对应平台的压缩包：
 
-| 系统 | 文件 | 常见架构 |
+| 系统 | 发布包 | 常见架构 |
 | --- | --- | --- |
-| Windows | `windows_*.zip` | 大多数 PC 选 `amd64`，ARM 设备选 `arm64` |
-| Linux | `linux_*.tar.gz` | x86 服务器选 `amd64`，ARM 服务器选 `arm64` |
-| macOS | `macos_*.tar.gz` | Apple Silicon 选 `arm64`，Intel 选 `amd64` |
+| Windows | `NEMCBridge_*_windows_*.zip` | 常规 PC 选 `amd64`，ARM 设备选 `arm64` |
+| Linux | `NEMCBridge_*_linux_*.tar.gz` | x86_64 服务器选 `amd64`，ARM64 服务器选 `arm64` |
+| macOS | `NEMCBridge_*_macos_*.tar.gz` | Apple Silicon 选 `arm64`，Intel 选 `amd64` |
 
-Windows 解压后双击 `NEMCBridge.exe`。Linux/macOS 在解压目录执行：
+Windows 解压后双击 `NEMCBridge.exe`；Linux / macOS 在解压目录执行：
 
 ```sh
 chmod +x NEMCBridge
 ./NEMCBridge -data-dir ./data
 ```
 
-管理页面默认监听 `0.0.0.0:18321`，启动终端会显示局域网访问地址。本机打开 [http://127.0.0.1:18321/](http://127.0.0.1:18321/)，同一网络的设备使用终端显示的地址。首次打开时输入终端显示的一次性初始化码，再设置管理员用户名和密码；在「设置」填写 [FGAuth 验证服务器](https://fgauth.ucket.top)（需支持安全开房和房间票据回传；自建站以[部署指南](docs/setup.md)的能力要求为准），在「国际服」添加后端地址，在「网易账号」添加自己的机器人令牌，再到「桥接」绑定账号，最后在概览选择国际服并点击「启动房间」。后端在同一台机器时，默认地址为 `127.0.0.1:19132`。
+### 3. 初始化并开房
 
-### 3. 一起加入
+1. 打开控制台（默认 `http://127.0.0.1:18321/`，终端会输出局域网地址），输入终端显示的一次性初始化码并创建管理员账号。
+2. 在 **设置** 中确认 [FGAuth 验证服务器](https://fgauth.ucket.top) 地址（需支持安全开房与房间票据回传）。
+3. 在 **国际服** 添加后端地址（同机 BDS 默认为 `127.0.0.1:19132`，BDS 26.60 NetherNet 填 `http://127.0.0.1:19132`）。
+4. 在 **网易账号** 添加机器人令牌，在 **桥接** 绑定账号与国际服（或选服大厅），最后在 **概览** 点击 **启动房间**。
+5. 网易玩家在「本地联机」搜索控制台显示的房间号即可进服；同一机器人账号请保持仅在此处登录。
 
-网易玩家在「本地联机」中搜索控制台显示的房间号；国际版 Bedrock 玩家通过服务器地址和 UDP 端口加入同一个 BDS。让机器人账号只保留一个登录会话。
+---
 
-房间总人数可配置为 2–30 人，默认 10 人，包含房主机器人；实际容量受开房账号权益限制。修改 BDS 的 `max-players` 不会提高网易房间容量；国际版直连不占网易房间名额，但会计入 BDS 人数。
+## 兼容范围与文档导航
 
-需要自动转服与大厅名额释放时，先填写本机 UDP 19441 的公网映射地址，再为国际服开启 Beta；详见[网关配置](docs/handoff.md)。
-
-更多配置、远程管理、升级及常见问题见 [部署指南](docs/setup.md)。
-
-## 兼容范围
-
-| 组件 | 已验证组合 |
+| 组件 | 推荐 / 已验证范围 |
 | --- | --- |
-| 网易客户端 | `3.10.5.301327` |
-| 网易房间内核版本 | `1.21.130.0`，房间协议由 FGAuth 按官方映射返回 |
-| BDS | `1.21.130.4`，游戏协议 `898` |
-| 国际版客户端 | Bedrock `1.21.130` |
+| 网易客户端 | `3.10.5.301327`（协议 `898`） |
+| 网易房间内核 | `1.21.130.0`（房间协议由 FGAuth 返回） |
+| 官方 BDS | 推荐 `1.21.130.4`（`898`）；实验性覆盖所列 `1.21.120–26.60`（`859–2225`） |
+| 其他服务端 | Purpur / Paper + Geyser（`859–2225`）、LeviLamina、Endstone、PocketMine-MP、PowerNukkitX、Nukkit / Nukkit-MOT、Allay、Cloudburst、Dragonfly |
 
-已通过网易 3.10 真实客户端进服、聊天、挥手及挖掘验证，并完成官方 BDS / WebRTC 协议回归。发布检查覆盖三个系统，提供六个平台架构的安装包。其他交互、特殊皮肤及模组仍需各服验证；详细记录见[网易 3.10 适配说明](docs/netease-3.10.md)。
+- [官网与中文文档（推荐）](https://nemcbridge.ucket.top/wiki/)
+- [部署指南](docs/setup.md)（含真实 IP 透传、PROXY Protocol v2、远程管理与升级校验）
+- [自动转服与选服大厅](docs/handoff.md)
+- [多版本支持](docs/multiversion.md) · [26.60 适配清单](docs/compatibility-status-26.60.md)
+- [服务端兼容报告](docs/server-compatibility.md) · [完整兼容性边界](docs/compatibility.md)
+- [资源包与材质说明](docs/resource-packs.md) · [更新日志](CHANGELOG.md)
 
-网易端默认使用内置组件预加载（不激活经典材质）并下载后端资源，无需勾选开关或手动导入配置。历史网易 3.9 的普通自制贴图及现有服务器的 7 个资源包曾在 iOS 实测正常，新版资源效果仍需复验；配置方法见[资源包说明](docs/resource-packs.md)。行为包、脚本及其他自定义内容仍有兼容限制。Java 版客户端不在支持范围内。
+---
 
-Geyser 支持所列 859–2225 全部协议档位；其他主流基岩服务端的已验证组合、Nukkit 必要配置及 LeviLamina 版本限制见[服务端兼容范围](docs/server-compatibility.md)。完整边界见 [兼容性说明](docs/compatibility.md)。
+## 反馈与安全
 
-## 更新
-
-新版本发布后，控制台顶栏会提示，点击「立即更新」即可自动下载、验证发布签名并重启；GitHub 连不上时会改用内置加速镜像。手动升级步骤和版本变化见 [部署指南](docs/setup.md#升级与校验) 与 [更新日志](CHANGELOG.md)。
-
-## 反馈
-
-- 使用问题和兼容性报告：[Issues](https://github.com/UCKETX/NEMCBridge/issues)，请先核对兼容范围，不要贴出令牌、`secrets.dat` 或未经脱敏的日志。
-- 安全问题：按 [SECURITY.md](SECURITY.md) 私密反馈。
+- **功能建议与故障反馈**：请前往 [GitHub Issues](https://github.com/UCKETX/NEMCBridge/issues)，提交前请先核对兼容范围，切勿贴出机器人令牌、`secrets.dat` 或未脱敏的私密日志。
+- **安全漏洞报告**：请按 [SECURITY.md](SECURITY.md) 的私密渠道反馈。
 
 ## 致谢与声明
 
-感谢 [nemc-tan-lobby-solver](https://github.com/Happy2018new/nemc-tan-lobby-solver)、[gophertunnel](https://github.com/Sandertv/gophertunnel)、[Pion](https://github.com/pion)、[neomega-admin](https://github.com/UCKETX/neomega-admin) 及相关协议研究。程序包含的第三方组件保留各自的许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；从 v0.1.9 起，每个发布包附带完整的许可证原文。
+感谢 [nemc-tan-lobby-solver](https://github.com/Happy2018new/nemc-tan-lobby-solver)、[gophertunnel](https://github.com/Sandertv/gophertunnel)、[Pion](https://github.com/pion)、[neomega-admin](https://github.com/UCKETX/neomega-admin) 及相关协议研究。第三方组件各自保留原许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-本仓库用于发布 NEMCBridge 程序、用户文档和项目官网（`site/`）。
+本仓库用于发布 NEMCBridge 预编译安装包与用户文档；项目官网与中文文档位于 [nemcbridge.ucket.top](https://nemcbridge.ucket.top/)。
 
 本项目为独立社区工具，与 Mojang、Microsoft 或网易无隶属、赞助或官方合作关系。Minecraft 及相关商标归各自权利人所有。

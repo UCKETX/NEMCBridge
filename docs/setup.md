@@ -229,6 +229,28 @@ Ctrl+C、SIGTERM 或网页的退出功能会正常关闭房间。停止房间不
 
 26.60 使用 NetherNet。在 BDS 中设置 `transport=nethernet`，桥接的服务器地址填写 `http://主机:信令端口`，并允许 BDS 配置的 UDP 媒体端口供桥接访问。同机部署可填写 `http://127.0.0.1:19132`。无需修改网易房间版本，也无需把兼容资源包放入 BDS。旧版 RakNet 仍使用 `主机:端口`。详细验证范围见[多版本支持](multiversion.md#26302660-验证2026-11-02)。
 
+### 后端获取网易玩家真实 IP
+
+NEMCBridge 运行在本机时，后端看到的底层 UDP 源地址是 `127.0.0.1`。当 WebRTC 建立直连（`host` / `srflx` / `prflx` 候选）或玩家直连公网转服 UDP 网关时，NEMCBridge 会自动通过以下三种方式提供对端地址，无需额外配置：
+
+1. **登录 `ClientData` 自定义字段**：在转发给后端的 `Login` 数据包 `ClientData` JWT 中写入 `ClientIP`（字符串，如 `"203.0.113.42"`）与 `ClientPort`（整数端口）。客户端自行伪造的同名字段会被先清除，无法冒充。
+2. **结构化 JSON 文件**：在数据目录的 `logs/player_ips.json`（权限 `0600`）中以 `{玩家名: {ip, port, time, uid, uuid, xuid, source, server, online}}` 格式原子更新；该文件在 `Login` 发送到后端前即完成写入，插件在登录事件中可直接读取。
+3. **运行日志**：在 `logs/keeper.log` 与控制台日志中记录 `玩家 <名称> 来自 <IP>:<端口>`。
+4. **UDP HAProxy PROXY Protocol v2（按国际服可选开启）**：针对原生支持代理协议的 UDP/RakNet 后端（如 **Geyser**），可在「国际服 → 编辑」勾选 **PROXY Protocol v2**（或在 `config.json` 对应服务器项中设置 `"proxy_protocol": true`），并在 Geyser `config.yml` 同步开启：
+   ```yaml
+   advanced:
+     bedrock:
+       use-haproxy-protocol: true
+       haproxy-protocol-whitelisted-ips:
+         - "127.0.0.1"
+         - "192.168.31.102" # 替换为 NEMCBridge 所在主机 IP
+   ```
+   开启后 Geyser 及下游 Purpur/Paper 无需修改任何插件即可原生显示玩家真实 IP（支持 IPv6 玩家连入 IPv4 后端）；注意 Geyser 开启 `use-haproxy-protocol: true` 后会要求连接该端口的客户端均携带 PROXY 头，未经过代理直连该端口的国际版客户端将被丢弃。不支持原版 BDS 或 NetherNet (`http://`) 地址。
+
+安全与边界：
+- 若玩家经网易 TURN 中继建连（ICE 选中远程 `relay` 候选），NEMCBridge **不会**把 TURN 服务器地址或未经传输验证的信令候选当作玩家 IP 写入 `ClientIP`，以避免误封中继节点或被客户端伪造；此时 `ClientData` 不含 `ClientIP`，`logs/player_ips.json` 中 `ip` 为空且 `source` 标记为 `"webrtc-relay"`。
+- 开启自动转服且通过本机内网穿透（如 FRP 转发到 `127.0.0.1:19441`）时，若公网网关收到的是回环或内网地址，会自动回退使用入口阶段 WebRTC 获取到的玩家公网地址；若玩家直连公网 UDP 网关，则直接使用实时公网源地址。
+
 ## 其他基岩服务端
 
 固定构建和历史协议验证见[服务端兼容性报告](server-compatibility.md)。后端协议与 Nukkit 2168+ 的物品方块编码自动识别，无需在界面选择兼容配置；旧配置中的手动档位会迁移为自动。
