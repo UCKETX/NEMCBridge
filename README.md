@@ -46,7 +46,8 @@ flowchart LR
 - **跨版本与自动外观**：实验性支持所列 `1.21.120–26.60`（协议 `859–2225`）后端及 Purpur / Paper + Geyser；按后端协议自动下载、SHA256 校验、缓存并下发兼容资源包，无需手动导入。见[多版本说明](docs/multiversion.md)与[适配清单](docs/compatibility-status-26.60.md)。
 
 ### 运维与安全能力
-- **玩家真实 IP 透传（v1.6.1-beta.1+）**：自动向后端 `Login` `ClientData` 写入防伪造的 `ClientIP` / `ClientPort`，同步原子更新 `logs/player_ips.json` 并在日志中记录来源地址；支持按国际服可选开启 **UDP HAProxy PROXY Protocol v2**（适配 Geyser 等兼容后端，无需改插件即可原生显示真实 IP）。
+- **多平台通知推送与 QQ 群公告**：内置独立「通知」管理页，支持 OneBot v11（QQ 群 / 私聊）、飞书、钉钉、企业微信、Discord、Telegram、Bark（iOS）与通用 JSON 共 8 大平台及 8 类事件，无需停房即时生效；支持选服大厅去重、各平台 `@提醒` / 铃声 / 话题推送、按事件独立消息模板，以及 QQ 群自动替换维护唯一一条最新房间号群公告（多服同群自动合并，支持 `{{room_id:服名}}` 拆开插槽）。
+- **玩家真实 IP 透传**：自动向后端 `Login` `ClientData` 写入防伪造的 `ClientIP` / `ClientPort`，同步原子更新 `logs/player_ips.json` 并在日志中记录来源地址；支持按国际服可选开启 **UDP HAProxy PROXY Protocol v2**（适配 Geyser 等兼容后端，无需改插件即可原生显示真实 IP）。
 - **Web 管理控制台**：内置管理员登录（首次启动使用终端一次性初始化码），集中管理国际服、选服大厅、网易账号、好友申请与私信、实时概览及可筛选/搜索/轮转的运行日志。
 - **签名校验一键更新**：支持在控制台自动检查、下载、校验 SHA256 与 Ed25519 发布签名并重启升级，GitHub 访问受限时自动切换内置加速镜像。
 - **跨平台开箱即用**：提供 Windows、Linux、macOS 的 `amd64` / `arm64` 单文件发布包；Windows 凭据使用 DPAPI 加密，Linux/macOS 以 `0600` 权限保护。

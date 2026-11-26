@@ -2,6 +2,13 @@
 
 详细发行说明见 [Releases](https://github.com/UCKETX/NEMCBridge/releases)。
 
+## v1.6.1 — 2026-11-26
+
+- 新增独立「通知」管理页与多通道 Webhook 推送系统：支持 OneBot v11（QQ 群 / 私聊）、飞书 / Lark、钉钉（加签）、企业微信、Discord、Telegram（支持反代）、Bark（iOS）与通用 JSON（自定义 Header + HMAC-SHA256），覆盖 8 类事件，修改即时生效无需停房。
+- 新增选服大厅感知路由与按通道去重、各平台专属能力（OneBot / Discord / 飞书 / 钉钉 `@提醒`，Bark 复制房间号 / 铃声 / 图标 / 30 秒告警响铃，Telegram 话题 ID / 静默推送）、按事件独立自定义消息模板、固定高度可筛选推送记录弹窗与状态文件凭据脱敏。
+- 新增 OneBot QQ 群公告实时维护：首次发布新公告、后续自动替换更新旧公告并持久化 `notice_id`（不误删管理员公告），多服同群自动合并为一条公告，支持自定义群公告模板与 `{{rooms}}` / `{{room_id:服名}}` / `{{room_password:服名}}` 精准插槽。
+- 正式合并 `v1.6.1-beta.1` 的网易玩家真实 IP 透传（[#3](https://github.com/UCKETX/NEMCBridge/issues/3)）与按国际服可选 UDP HAProxy PROXY Protocol v2（`proxy_protocol`）。详见[发行说明](docs/releases/v1.6.1.md)。
+
 ## v1.6.1-beta.1 — 2026-11-26
 
 - 新增网易玩家真实 IP 透传（[#3](https://github.com/UCKETX/NEMCBridge/issues/3)）：自动在后端登录 `ClientData` 注入防伪造的 `ClientIP` / `ClientPort`，登录前原子更新 `logs/player_ips.json`，并在 `logs/keeper.log` 记录玩家来源地址；自动转服配合 FRP 穿透时保留入口 WebRTC 公网地址，远程 TURN 中继不误报中继节点 IP。
